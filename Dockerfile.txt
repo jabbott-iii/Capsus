@@ -11,7 +11,7 @@ RUN go mod download
 
 # Copy source and build
 COPY . .
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o /out/munus .
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o /out/capsus .
 
 FROM alpine:3.22
 
@@ -19,12 +19,12 @@ FROM alpine:3.22
 RUN apk add --no-cache ca-certificates sqlite-libs
 
 WORKDIR /app
-COPY --from=builder /out/munus /usr/local/bin/munus
+COPY --from=builder /out/capsus /usr/local/bin/capsus
 
-# Persist sqlite database file (munus.db)
+# Persist sqlite database file (capsus)
 VOLUME ["/app/data"]
 
-ENV MUNUS_DB_PATH=/app/data/munus.db
+ENV MUNUS_DB_PATH=/app/data/capsus.db
 
 # This app is an interactive TUI/CLI
-ENTRYPOINT ["munus"]
+ENTRYPOINT ["capsus"]
