@@ -12,6 +12,7 @@ Before making changes, read:
 5. `intel/maint.md` — authoritative architecture and maintainability guidance.
 6. `intel/map.md`— repository structure map, component descriptions, and relevant
   technical diagrams
+7. `intel/golang.md`— authoritative guidance on Go language usage.
 
 ## Instruction Precedence
 - Follow all applicable platform, organization, and account-level instructions.
@@ -36,7 +37,7 @@ Maintain the following documents in the repository-root `intel/` directory:
   changes.
 - `intel/notes.md` — durable engineering notes and unresolved technical questions.
 - `intel/plan.md` — active implementation plans and follow-on work.
-Maintain `CONTRIBUTING.md ` and `README.md` at the repository root.
+Maintain `CONTRIBUTING.md` and `README.md` at the repository root.
 
 ## Document Update Rules
 - Create a required document only if it does not already exist.
@@ -47,7 +48,7 @@ Maintain `CONTRIBUTING.md ` and `README.md` at the repository root.
   Append new entries only when recording a significant change.
 - Treat `intel/maint.md` as the authoritative source for repository architecture
   and maintainability guidance.
-- Keep `CONTRIBUTING.md ` consistent with `intel/maint.md` and focused on
+- Keep `CONTRIBUTING.md` consistent with `intel/maint.md` and focused on
   contributor setup, workflow, validation, coding expectations, and pull-request
   expectations.
 - Keep `intel/map.md` concise. Update it when files, directories, components,
