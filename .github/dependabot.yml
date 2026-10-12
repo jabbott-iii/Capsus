@@ -1,7 +1,15 @@
-# Weekly, grouped dependency updates (intel/plan.md, P-050). Workflow actions
-# stay pinned by commit SHA: Dependabot updates the SHA and its version comment.
-# When a Go module update adds or removes a module or changes a license text,
-# run `go run ./tools/licenses` and update NOTICE; CI fails until then.
+# Weekly, grouped dependency updates. Workflow actions stay pinned by commit
+# SHA: Dependabot updates the SHA and its version comment. The gosec and
+# govulncheck versions in security.yml and the Makefile are not updated here.
+#
+# Go version updates cover the root module only (its direct dependencies, the
+# default). The tools in Munus/, Cryptare/ and Salus/ are updated in their own
+# repositories and arrive with `git subtree pull` (intel/maint.md §3 and §7).
+# There is deliberately no `allow` filter, so that security updates can still
+# reach the root's indirect requirements (the tools' dependencies); close
+# security pull requests against the tool folders and fix them upstream.
+# After a Go module update, regenerate the license files (intel/plan.md P-040);
+# CI fails until then.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -16,12 +24,15 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # Replaced by the local tool folders; never fetched from the proxy.
+      - dependency-name: github.com/jabbott-iii/*
     groups:
       go-modules:
         patterns: ["*"]
 
-  # The Dockerfile's builder and runtime images must stay on the same Alpine
-  # release (see intel/maint.md); the licenses check in CI fails otherwise.
+  # Applies once the Dockerfile exists (intel/plan.md P-030). Its builder image
+  # must stay on the Alpine release the static binary is tested against.
   - package-ecosystem: docker
     directory: /
     schedule:

@@ -13,51 +13,24 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
+# The tools in Munus/, Cryptare/ and Salus/ are nested Go modules. Scanners
+# started at the repository root see only the root module (gosec skips nested
+# modules silently), so CodeQL builds every module and gosec runs in each one
+# (intel/cybersec.md SEC-003).
 jobs:
   codeql:
     name: CodeQL (Go)
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
-        with:
-          languages: go
-          queries: security-extended
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
-
-      - name: Analyze
-        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
-
-      - name: Run Gosec security scanner
-        uses: securego/gosec@deb54465fea23d19a77f037e11e6589021f8501d # v2.29.0
-        with:
-          args: '-no-fail -fmt sarif -out results.sarif ./...'
-
-      # -no-fail keeps the job green; findings are triaged in Code Scanning.
-      - name: Upload Gosec results
-        if: always()
-        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
-        with:
-          sarif_file: results.sarif
-          category: gosec
-
-  govulncheck:
-    name: govulncheck
-    runs-on: ubuntu-latest
     permissions:
       contents: read
+      security-events: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -66,7 +39,111 @@ jobs:
           check-latest: true
           cache: false
 
-      # Pinned by version and verified against the Go checksum database.
-      # Fails when a known vulnerability is reachable from Munus code.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          languages: go
+          build-mode: manual
+          queries: security-extended
+
+      - name: Build every module
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          for module in . Munus Cryptare Salus; do
+            echo "== $module"
+            (cd "$module" && go build ./...)
+          done
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+
+  gosec:
+    name: gosec (${{ matrix.module.name }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - { name: capsus, dir: . }
+          - { name: munus, dir: Munus }
+          - { name: cryptare, dir: Cryptare }
+          - { name: salus, dir: Salus }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+          check-latest: true
+          cache: false
+
+      # The gosec action runs at the repository root only, so gosec runs from
+      # the module folder instead: pinned by version (as GOSEC_VERSION in the
+      # Makefile) and verified against the Go checksum database. Unlike the
+      # actions, Dependabot does not update this version.
+      # -no-fail keeps the job green; findings are triaged in Code Scanning.
+      - name: Run gosec
+        working-directory: ${{ matrix.module.dir }}
+        env:
+          GOSEC_VERSION: v2.29.0
+          SARIF: ${{ github.workspace }}/gosec-${{ matrix.module.name }}.sarif
+        run: go run "github.com/securego/gosec/v2/cmd/gosec@${GOSEC_VERSION}" -no-fail -fmt sarif -out "$SARIF" ./...
+
+      # gosec writes paths relative to the folder it ran in; Code Scanning
+      # needs them relative to the repository root.
+      - name: Make SARIF paths repository-relative
+        if: always() && matrix.module.dir != '.' && hashFiles(format('gosec-{0}.sarif', matrix.module.name)) != ''
+        env:
+          PREFIX: ${{ matrix.module.dir }}/
+          SARIF: gosec-${{ matrix.module.name }}.sarif
+        run: |
+          jq --arg prefix "$PREFIX" \
+            '.runs[]?.results[]?.locations[]?.physicalLocation.artifactLocation.uri |= ($prefix + .)' \
+            "$SARIF" > "$SARIF.tmp"
+          mv "$SARIF.tmp" "$SARIF"
+
+      - name: Upload gosec results
+        if: always() && hashFiles(format('gosec-{0}.sarif', matrix.module.name)) != ''
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: gosec-${{ matrix.module.name }}.sarif
+          category: gosec-${{ matrix.module.name }}
+
+  # The root module's build list and call graph are what the release binary
+  # contains: the versions minimal version selection picks across the three
+  # tools, and the tool code capsus reaches (intel/cybersec.md SEC-002). Each
+  # tool also runs govulncheck on its own go.mod upstream.
+  govulncheck:
+    name: govulncheck (capsus build)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+          check-latest: true
+          cache: false
+
+      # Pinned by version (as GOVULNCHECK_VERSION in the Makefile) and verified
+      # against the Go checksum database; Dependabot does not update it.
       - name: Run govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./...
+        env:
+          GOVULNCHECK_VERSION: v1.8.0
+        run: go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...

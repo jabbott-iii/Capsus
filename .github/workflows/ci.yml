@@ -12,10 +12,113 @@ on:
 permissions:
   contents: read
 
+# Capsus is several Go modules: the launcher at the root and the imported tools
+# in Munus/, Cryptare/ and Salus/ (git subtrees with their own go.mod; see
+# intel/maint.md). `go ... ./...` never enters a nested module, so the test job
+# runs once per module. `make check` runs the same checks locally.
 jobs:
+  repository:
+    name: Repository checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Databases and key exports must never be committed (intel/cybersec.md).
+      # Runs first: it needs no Go module, so it also guards the repository
+      # before the import.
+      - name: Refuse committed databases and key material
+        run: make keys-check
+
+      # Fails with a pointer to intel/plan.md until every module is present.
+      - name: Check module layout
+        run: make layout
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.26.x"
+          check-latest: true
+          cache: false
+
+      # The launcher's files and every tool folder; tool code is fixed upstream.
+      - name: Check formatting
+        run: make fmt-check
+
   test:
-    name: Comprehensive CI testing
+    name: Test ${{ matrix.module.name }} (${{ matrix.os }})
+    needs: repository
     strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        module:
+          - { name: capsus, dir: . }
+          - { name: munus, dir: Munus }
+          - { name: cryptare, dir: Cryptare }
+          - { name: salus, dir: Salus }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ matrix.module.dir }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Latest Go 1.26 patch release (security fixes); each go.mod keeps
+          # its minimum version (intel/maint.md §5).
+          go-version: "1.26.x"
+          check-latest: true
+          cache: true
+          cache-dependency-path: ${{ matrix.module.dir }}/go.sum
+
+      - name: Verify dependencies
+        run: go mod tidy -diff
+
+      - name: Run go vet
+        run: go vet ./...
+
+      # Each module's own .golangci.yml applies (Salus has one).
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.13.2
+          working-directory: ${{ matrix.module.dir }}
+
+      # go-sqlite3 needs CGO, and so does the race detector, which runs on the
+      # Linux and macOS runners.
+      - name: Run tests with coverage
+        env:
+          CGO_ENABLED: "1"
+        run: go test -v ${{ runner.os != 'Windows' && '-race' || '' }} -coverprofile=coverage.out ./...
+
+      # Only the launcher's coverage is reported here; each tool reports its
+      # own coverage from its repository.
+      - name: Upload coverage to Codecov
+        if: matrix.module.name == 'capsus'
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: ./coverage.out
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+  # Builds the combined binary natively (go-sqlite3 needs CGO) and runs the
+  # Capsus CLI contract and one round trip through each tool (scripts/smoke.sh).
+  smoke:
+    name: Smoke test capsus (${{ matrix.os }})
+    needs: repository
+    strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -23,52 +126,22 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          # Latest Go 1.26 patch release (security fixes); go.mod keeps the
-          # minimum version (intel/cybersec.md SEC-018).
           go-version: "1.26.x"
           check-latest: true
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Verify dependencies
-        run: go mod tidy && git diff --exit-code
-        shell: bash
-
-      - name: Run go vet
-        run: go vet ./...
-
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
-        with:
-          version: v2.13.2
-
-      - name: Run tests with coverage
-        shell: bash
-        run: go test -v -coverprofile=coverage.out './...'
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
-        with:
-          files: ./coverage.out
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
-
-      # go-sqlite3 needs CGO, so build natively on each OS and run the binary to
-      # prove it can open a database (a CGO-less build compiles but cannot).
       - name: Build and smoke-test native binary
         shell: bash
         env:
           CGO_ENABLED: "1"
           EXT: ${{ runner.os == 'Windows' && '.exe' || '' }}
-          MUNUS_DB_PATH: ${{ runner.temp }}/ci-smoke.db
         run: |
-          go build -o "munus-ci${EXT}" .
-          "./munus-ci${EXT}" --version
-          "./munus-ci${EXT}" add --title "smoke" --description "CI smoke test"
-          # Not grep -q: with pipefail, munus could fail with SIGPIPE if grep
-          # exits before munus has written all of its output.
-          "./munus-ci${EXT}" list | grep "smoke" > /dev/null
+          go build -ldflags "-X main.version=ci" -o "capsus-ci${EXT}" .
+          bash scripts/smoke.sh "capsus-ci${EXT}" ci

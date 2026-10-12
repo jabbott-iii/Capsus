@@ -27,6 +27,20 @@ go.work.sum
 # env file
 .env
 
+# Build output (Makefile: bin/; cd.yml: dist/)
+/bin/
+/dist/
+
+# SQLite databases and key exports must never be committed (intel/cybersec.md)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.ckey
+
+# gosec SARIF output (security.yml)
+gosec-*.sarif
+
 # Editor/IDE
 # .idea/
 # .vscode/
