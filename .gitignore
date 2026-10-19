@@ -44,3 +44,8 @@ gosec-*.sarif
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Personal Claude Code instructions and settings (the shared ones are AGENTS.md,
+# CLAUDE.md and .claude/settings.json)
+CLAUDE.local.md
+.claude/settings.local.json
