@@ -111,7 +111,7 @@ Capsus/
 ├── Makefile                       # per-module checks, build, smoke, scans, `make tool`, release tags
 ├── .github/                       # ci, security, docker and cd workflows; dependabot.yml; PR template
 ├── AGENTS.md, CLAUDE.md, .claude/ # agent instructions; Claude Code rules, skills, settings, hook
-└── README.md, CONTRIBUTING.md, LICENSE, NOTICE.txt, CODEOWNERS.txt
+└── README.md, CONTRIBUTING.md, SECURITY.md, LICENSE, NOTICE.txt, CODEOWNERS.txt
 ```
 
 ## Architecture: Plan 1 decisions
@@ -203,8 +203,9 @@ Details: `.claude/rules/launcher.md`.
 - Dependabot pull requests against tool folders are closed and fixed upstream; a root-level bump
   is a stopgap only for a vulnerability govulncheck reports as reachable (Q-8).
 - Never write exploit details, reproduction steps or proof-of-concept input into files, commits,
-  issues or PR text. Capsus has no `SECURITY.md`: report a suspected vulnerability to the
-  maintainer privately, and don't add tracked items or IDs yourself.
+  issues or PR text. `SECURITY.md` is still GitHub's template; until it describes a reporting
+  process, report a suspected vulnerability to the maintainer privately, and don't add tracked
+  items or IDs yourself.
 - SEC-001 (tool release targets act on Capsus), SEC-002 (vulnerability scanning must cover what
   ships) and SEC-003 (static analysis must enter nested modules) are In Progress. Their
   remaining validation, and the tools' own open items that affect Capsus, are in
@@ -226,6 +227,7 @@ Details: `.claude/rules/launcher.md`.
 |---|---|---|
 | `README.md` | Users: bundled tools, commands, prerequisites, install, configuration, checks, structure | The launcher, `Makefile`, workflows |
 | `CONTRIBUTING.md`, `.github/pull_request_template.md` | Contributor workflow, validation, coding and PR expectations | Each other, the `Makefile`, `ci.yml`, this file |
+| `SECURITY.md` | Supported versions and private vulnerability reporting (still GitHub's template) | The release tags |
 | `NOTICE.txt`, `THIRD_PARTY_LICENSES` | Licensing of the combined binary (P-040, P-041) | The root build list |
 | `AGENTS.md`, `CLAUDE.md`, `.claude/` | Agent instructions | The commands, files and rules they name |
 
