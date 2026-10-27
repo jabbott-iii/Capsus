@@ -54,9 +54,13 @@ Use the module path from step 1 everywhere a module path appears.
 - `go.mod`: `require <module-path> v0.0.0` and `replace <module-path> => ./<ToolName>`; raise
   the root `go` or `toolchain` line if the tool's is higher (D-9); `go mod tidy` at the root
   (ask first).
-- Launcher: a registry entry (name, description, has-TUI, bundled tag, `Main`), the
-  `capsus <toolname>` subcommand with `DisableFlagParsing`, `--vim` pass-through if supported,
-  and tests for dispatch, the menu row, `capsus list` and `--version`.
+- Launcher: an entry in `Bundled` (`internal/launcher/registry.go`) with `Name`, `Command`,
+  `Description`, `HasTUI`, `Vim` (the tool accepts `--vim`), `Version` (a new `<tool>Version`
+  constant holding the bundled tag) and `Main`, with the tool's package imported under an alias.
+  The `capsus <command>` subcommand, its `DisableFlagParsing` and the `--vim` pass-through follow
+  from the entry. Extend `TestBundled`, the README tool table (`TestDescriptionsMatchTheREADME`),
+  the line count and patterns in `TestListOfBundledToolsMatchesSmokeTest`, the fakes in
+  `main_test.go` and `TestBundledToolsRunInOneProcess`.
 - `Makefile`: add it to `TOOLS`.
 - `ci.yml`: a row in the `module` matrix.
 - `security.yml`: a row in the gosec matrix and the folder in the CodeQL build loop (SEC-003).

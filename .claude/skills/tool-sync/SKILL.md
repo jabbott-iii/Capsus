@@ -53,11 +53,11 @@ Then wait until the maintainer says it has run.
 1. HEAD is now a merge commit and `HEAD^2` the squash commit (`git log -1 HEAD^2` shows its
    `git-subtree-dir:` and `git-subtree-split:` lines). `git diff --stat HEAD^1 HEAD` must list
    only paths under `<Tool>/`.
-2. Set the tool's bundled version in the launcher registry to `<tag>` (P-011). Before Phase 2
-   there is no registry yet; note the tag in the report instead.
-3. Root module (after Phase 2): keep the `require`/`replace` pair; raise the root `go` or
-   `toolchain` line if the tool's is now higher (D-9); run `go mod tidy` at the root only, after
-   asking, since it rewrites `go.mod` and `go.sum`.
+2. Set the tool's bundled version in the launcher registry to `<tag>` (P-011): its
+   `<tool>Version` constant in `internal/launcher/registry.go`.
+3. Root module (once every tool folder exists): keep the `require`/`replace` pair; raise the
+   root `go` or `toolchain` line if the tool's is now higher (D-9); run `go mod tidy` at the root
+   only, after asking, since it rewrites `go.mod` and `go.sum`.
 4. `make deps-drift` and report every line it prints (R-1). Drift is fixed upstream; a root-level
    bump is a stopgap only for a reachable vulnerability (Q-8).
 5. Licenses: if modules were added or removed, regenerate `THIRD_PARTY_LICENSES` and update the
@@ -67,6 +67,8 @@ Then wait until the maintainer says it has run.
 7. `make keys-check`, `make check-all` and `make smoke`, then `/pre-pr` with the commit before
    the subtree merge as its base (`HEAD^1` while the merge is still `HEAD`), so the import is in
    range.
+   During Phase 1, steps 3 and 7 run after the last of the three imports; earlier imports
+   report them as not runnable yet (layout).
 
 ## 4. Report
 

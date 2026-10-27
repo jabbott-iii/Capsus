@@ -7,7 +7,9 @@ people who use them together. Running `capsus` will open a menu that lists the t
 description; selecting a tool launches that tool's own terminal UI (TUI), and a tool without a TUI
 says so.
 
-> **Status: in preparation.** The tools are not imported yet and the `capsus` binary does not exist.
+> **Status: in preparation.** The launcher code is written, but no tool release exports the
+> `pkg.Main` entry point it needs yet and the tools are not imported, so the `capsus` binary cannot
+> be built.
 > Everything under "Planned" below describes [Plan 1](intel/plan.md), which is awaiting review. The
 > build, test and release tooling in this repository already targets that layout.
 
@@ -23,16 +25,20 @@ Each tool's own README is the reference for its commands and options.
 
 ## Planned features
 
-Not implemented yet; see [intel/plan.md](intel/plan.md), decisions D-5 and D-6.
+Not available yet: the launcher is written but cannot be built until the tools are imported; see
+[intel/plan.md](intel/plan.md), decisions D-5 and D-6.
 
 - `capsus`: menu TUI listing each tool, its description and whether it has a TUI. Enter launches the
-  tool's TUI and returns to the menu when it exits; for Salus the menu says it has no TUI.
+  tool's TUI and returns to the menu when it exits; for Salus the menu says it has no TUI. Outside a
+  terminal it exits with 2 and points to `capsus list` and `capsus <tool>`.
 - `capsus list`: the same list as plain text, for scripts.
 - `capsus munus|cryptare|salus [args...]`: runs that tool's CLI with the arguments unchanged and
   exits with the tool's exit code. A tool's help shows the tool's own name (for example
-  `munus add`).
+  `munus add`). Arguments go after the tool name: `capsus --vim munus` is a usage error.
 - `capsus --vim`: opens the menu and passes `--vim` to Munus and Cryptare.
-- `capsus --version`: the Capsus version and the bundled tool versions.
+- `capsus --version` (`-v`): the Capsus version and the bundled tool versions.
+- Capsus' own errors: exit 2 for an unknown tool, command or flag, and 1 when the menu cannot
+  start or output cannot be written.
 
 ## Prerequisites
 
@@ -90,7 +96,8 @@ make tool TOOL=Cryptare TARGET=golden   # run one of a tool's own Makefile targe
 ```
 Capsus/
 ├── Munus/ Cryptare/ Salus/  # planned: the tools, imported as git subtrees (own go.mod each)
-├── main.go, internal/       # planned: the capsus launcher and menu TUI
+├── main.go, internal/       # the capsus launcher and menu TUI (not buildable yet; see Status)
+├── go.mod, go.sum           # root module: requires the tools, replaced by their folders
 ├── scripts/smoke.sh         # smoke test for a built capsus binary
 ├── Makefile                 # checks, build, smoke test, security scans, release tagging
 ├── .github/                 # CI, security, Docker and CD workflows; Dependabot; PR template

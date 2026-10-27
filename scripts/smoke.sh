@@ -73,10 +73,25 @@ expect "capsus list" '^[Cc]ryptare[[:space:]].*[^[:alnum:]]TUI([^[:alnum:]]|$)' 
 expect "capsus list" '^[Ss]alus[[:space:]].*CLI only' "$out"
 status=0
 "$bin" no-such-tool >/dev/null 2>&1 || status=$?
-if ((status == 0)); then
-	echo "smoke: capsus accepted an unknown tool" >&2
+if ((status != 2)); then
+	echo "smoke: an unknown tool exited with $status, want 2 (capsus' usage error)" >&2
 	exit 1
 fi
+# --version keeps a regression from opening Munus' TUI.
+status=0
+"$bin" --vim munus --version >/dev/null 2>&1 || status=$?
+if ((status != 2)); then
+	echo "smoke: a capsus flag before the tool name exited with $status, want 2" >&2
+	exit 1
+fi
+# Standard output is a file here, so capsus must refuse to open the menu.
+status=0
+"$bin" >"$tmp/menu.out" 2>"$tmp/menu.err" || status=$?
+if ((status != 2)) || [[ -s "$tmp/menu.out" ]]; then
+	echo "smoke: capsus without arguments outside a terminal exited with $status, want 2 and no output" >&2
+	exit 1
+fi
+expect "capsus outside a terminal" 'the menu needs a terminal' "$(cat "$tmp/menu.err")"
 
 # Munus: add a task and list it.
 out="$("$bin" munus --version)"

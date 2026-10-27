@@ -29,12 +29,13 @@ All three use Go 1.26, keep their code in package `pkg` (`pkg/`), use Cobra v1.1
 with `mattn/go-sqlite3` (CGO), and are Apache-2.0. Munus and Cryptare use Bubble Tea v1.3.10
 and Lip Gloss v1.1.0.
 
-## Current state (checked 2026-10-18)
+## Current state (checked 2026-10-19)
 
-- Preparation only: no Go code, `go.mod` or tool folder exists yet. Every `make` target that
-  needs a module stops at `make layout` until Phases 1 and 2 land (the tool folders and the root
-  `go.mod`). The README, `Makefile`, `scripts/smoke.sh` and the workflows already target the
-  planned layout.
+- Preparation: the launcher (`main.go`, `internal/launcher`, the root `go.mod` and `go.sum`) is
+  written against the planned `pkg.Main` (D-4), but no tool folder exists yet, so nothing
+  builds: every `make` target that needs a module stops at `make layout` until Phase 1 imports
+  the tools at releases that export `pkg.Main`. The README, `Makefile`, `scripts/smoke.sh` and
+  the workflows already target the planned layout.
 - No tool exports the `pkg.Main` entry point the launcher needs (D-4). Today Munus wires its
   database and `NewRootCmd` in `main.go`, Cryptare has `pkg.Run(version)`, which reads
   `os.Args`, and Salus keeps `run`/`runWith` in package `main`.
@@ -101,9 +102,9 @@ Run from the repository root. They need GNU Make, bash, git, Go 1.26 and a C com
 
 ```text
 Capsus/
-├── main.go                        # planned (P-021): version, Cobra root command `capsus`
-├── internal/launcher/             # planned (P-022): tool registry and Bubble Tea menu
-├── go.mod, go.sum                 # planned (P-020): require and replace the three tools
+├── main.go                        # P-021: version, Cobra root command `capsus`
+├── internal/launcher/             # P-022: tool registry and Bubble Tea menu
+├── go.mod, go.sum                 # P-020: require and replace the three tools
 ├── Munus/ Cryptare/ Salus/        # planned (P-010): git subtrees, one Go module each
 ├── Dockerfile, .dockerignore      # planned (P-030): `static` stage for the Linux binaries
 ├── tools/licenses/                # planned (P-040): THIRD_PARTY_LICENSES generator
@@ -167,7 +168,8 @@ disagreement instead of diverging.
   latest Go 1.26 patch release; a new Go minor release is a separate, deliberate change.
 
 The launcher's own code is `main.go` (Cobra commands) and `internal/launcher`: a registry (name,
-description, has-TUI, bundled version, `Main`) that holds no UI code, and the menu model.
+command, description, has-TUI, accepts `--vim`, bundled version, `Main`) that holds no UI code,
+and the menu model.
 Details: `.claude/rules/launcher.md`.
 
 ## Tool folders
@@ -251,7 +253,8 @@ Repeatable procedures are Claude Code skills that other agents can follow as che
 
 ## Plan 1 work order
 
-Every item is open (2026-10-18). The maintainer runs every step that commits, tags or pushes.
+Every item is open (2026-10-19); Phase 2's code and tests are written but unvalidated until
+Phase 1 lands. The maintainer runs every step that commits, tags or pushes.
 
 - **Phase 0, upstream (in each tool's repository).** P-001 Munus, P-002 Cryptare and P-003 Salus
   add `pkg.Main` with tests (version output, exit codes, arguments taken from the parameter
