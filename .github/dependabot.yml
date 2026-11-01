@@ -1,0 +1,26 @@
+# Weekly pull requests for dependency updates (SEC-018, plan 5.1): Go modules, the
+# GitHub Actions the workflows pin to commit SHAs, and the Dockerfile's base images.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  # The Dockerfile pins golang and alpine by digest, so only these pull requests bring
+  # their security fixes. The golang image must match go.mod's toolchain line and
+  # LINUX_BUILDER in cd.yml (.claude/rules/build-release.md): apply a golang update to
+  # all three together. Go minor versions are a deliberate change, so only patch
+  # updates are proposed.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: golang
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]

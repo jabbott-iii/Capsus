@@ -1,0 +1,49 @@
+# If you prefer the allow list template instead of the deny list, see community template:
+# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
+#
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Local builds (make build)
+/bin/
+
+# Code coverage profiles and other test artifacts
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+*.db
+
+# Key material and SQLite side files that hold database pages (SEC-003)
+*.ckey
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Generated for release archives by scripts/third-party-licenses.sh (Q-006)
+/THIRD_PARTY_LICENSES.txt
+
+# env file
+.env
+
+# Personal Claude Code settings and notes (CLAUDE.md and the rest of .claude/ are shared)
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Editor/IDE
+# .idea/
+# .vscode/

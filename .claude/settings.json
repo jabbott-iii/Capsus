@@ -1,0 +1,103 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make help)",
+      "Bash(make build)",
+      "Bash(make test)",
+      "Bash(make test-race)",
+      "Bash(make cover)",
+      "Bash(make cover-html)",
+      "Bash(make golden)",
+      "Bash(make fuzz *)",
+      "Bash(make fmt)",
+      "Bash(make fmt-check)",
+      "Bash(make vet)",
+      "Bash(make lint)",
+      "Bash(make tidy-check)",
+      "Bash(make keys-check)",
+      "Bash(make smoke)",
+      "Bash(make check)",
+      "Bash(make sec)",
+      "Bash(make vuln)",
+      "Bash(make security)",
+      "Bash(make actionlint)",
+      "Bash(make check-all)",
+      "Bash(make clean)",
+      "Bash(go test *)",
+      "Bash(go vet *)",
+      "Bash(go build *)",
+      "Bash(go list *)",
+      "Bash(go env *)",
+      "Bash(go version)",
+      "Bash(gofmt -s -l *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git describe *)",
+      "Bash(git ls-files *)",
+      "Bash(git blame *)"
+    ],
+    "ask": [
+      "Bash(git commit *)",
+      "Bash(go get *)",
+      "Bash(go mod tidy *)",
+      "Bash(make docker-build)",
+      "Bash(make docker-smoke)",
+      "Edit(/go.mod)",
+      "Edit(/go.sum)",
+      "Edit(/Dockerfile)",
+      "Edit(/.github/**)",
+      "Edit(/scripts/**)",
+      "Edit(/pkg/testdata/golden/**)",
+      "Edit(/.claude/settings.json)",
+      "Edit(/.claude/hooks/**)"
+    ],
+    "deny": [
+      "Bash(git push *)",
+      "Bash(git tag *)",
+      "Bash(git commit --amend *)",
+      "Bash(git reset --hard *)",
+      "Bash(git rebase *)",
+      "Bash(git filter-branch *)",
+      "Bash(git filter-repo *)",
+      "Bash(make release *)",
+      "Bash(make tag *)",
+      "Bash(make push-tag *)",
+      "Bash(gh release *)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(*.db)",
+      "Read(*.db-journal)",
+      "Read(*.db-wal)",
+      "Read(*.db-shm)",
+      "Read(*.ckey)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-golden.sh\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/go-post-edit.sh\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

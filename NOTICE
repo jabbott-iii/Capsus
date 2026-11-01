@@ -1,0 +1,6 @@
+Cryptare
+Copyright 2026 Joseph Anthony Abbott III
+
+The release binaries also contain third-party software under its own licences.
+Release archives include THIRD_PARTY_LICENSES.txt, which lists it with the
+licence texts; scripts/third-party-licenses.sh generates that file.
