@@ -1,0 +1,1 @@
+Cryptare golden fixture: a single file.

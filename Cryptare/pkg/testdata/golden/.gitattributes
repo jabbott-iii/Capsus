@@ -1,0 +1,4 @@
+# Golden fixtures must reach every platform byte for byte: no line-ending conversion
+# (Windows checkouts convert text files by default) and no diffs of ciphertext.
+*.enc -text -diff
+*.txt -text -diff

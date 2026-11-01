@@ -1,0 +1,49 @@
+name: Docker
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docker-smoke-test:
+    name: Build and smoke test Docker image
+    runs-on: ubuntu-latest
+
+    env:
+      IMAGE_NAME: cryptare:${{ github.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build Docker image
+        run: docker build --tag "$IMAGE_NAME" --file Dockerfile .
+
+      - name: Smoke test CLI help
+        run: docker run --rm "$IMAGE_NAME" --help
+
+      # The image must run as its unprivileged user, never root (SEC-013).
+      - name: Check the image's user
+        run: |
+          uid="$(docker run --rm --entrypoint id "$IMAGE_NAME" -u)"
+          echo "The image runs as UID $uid"
+          test "$uid" = 10001
+
+      # Exercises the SQLite key store on the image's data volume
+      # (the Dockerfile sets CRYPTARE_DB_PATH=/app/data/cryptare.db).
+      - name: Smoke test database access
+        run: |
+          docker volume create cryptare-smoke
+          # Throwaway test passphrase, mounted as a file so it stays out of the arguments.
+          printf 'docker-smoke-passphrase\n' > smoke-pw.txt
+          docker run --rm -v cryptare-smoke:/app/data -v "$PWD/smoke-pw.txt:/run/smoke-pw.txt:ro" \
+            "$IMAGE_NAME" keys generate --password-file /run/smoke-pw.txt
+          docker run --rm -v cryptare-smoke:/app/data "$IMAGE_NAME" keys list | grep -q "AES-256-GCM"

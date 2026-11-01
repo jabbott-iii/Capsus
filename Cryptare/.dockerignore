@@ -1,0 +1,26 @@
+# Keep the build context to what the image build needs (SEC-013): no repository
+# history, editor or CI files, and no key material, databases or encrypted data that
+# may sit in a working copy.
+.git
+.github
+.idea
+.junie
+.claude
+CLAUDE.md
+CLAUDE.local.md
+.devcontainer
+intel
+dist
+bin
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.ckey
+*.enc
+*.gz
+*.tgz
+*.zip
+*.out
+pw.txt
+*-pw.txt
