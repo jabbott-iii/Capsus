@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Comprehensive CI testing
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Latest Go 1.26 patch release (security fixes); go.mod keeps the
+          # minimum version (intel/cybersec.md SEC-018).
+          go-version: "1.26.x"
+          check-latest: true
+          cache: true
+          cache-dependency-path: go.sum
+
+      - name: Verify dependencies
+        run: go mod tidy && git diff --exit-code
+        shell: bash
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.13.2
+
+      - name: Run tests with coverage
+        shell: bash
+        run: go test -v -coverprofile=coverage.out './...'
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          files: ./coverage.out
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+      # go-sqlite3 needs CGO, so build natively on each OS and run the binary to
+      # prove it can open a database (a CGO-less build compiles but cannot).
+      - name: Build and smoke-test native binary
+        shell: bash
+        env:
+          CGO_ENABLED: "1"
+          EXT: ${{ runner.os == 'Windows' && '.exe' || '' }}
+          MUNUS_DB_PATH: ${{ runner.temp }}/ci-smoke.db
+        run: |
+          go build -o "munus-ci${EXT}" .
+          "./munus-ci${EXT}" --version
+          "./munus-ci${EXT}" add --title "smoke" --description "CI smoke test"
+          # Not grep -q: with pipefail, munus could fail with SIGPIPE if grep
+          # exits before munus has written all of its output.
+          "./munus-ci${EXT}" list | grep "smoke" > /dev/null

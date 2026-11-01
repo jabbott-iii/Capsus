@@ -1,0 +1,49 @@
+Munus
+
+Copyright 2026 Joseph Anthony Abbott III
+
+This product includes third-party software. Each component keeps its own license;
+the modules below are compiled into the Munus release binaries and Docker image.
+The full license texts are in THIRD_PARTY_LICENSES, which is shipped with every
+release archive and in the Docker image (/usr/share/licenses/munus). The module
+versions compiled into a binary can be listed with `go version -m <binary>`.
+
+Direct dependencies:
+  - github.com/charmbracelet/bubbletea Charmbracelet, Inc. MIT License
+  - github.com/charmbracelet/lipgloss Charmbracelet, Inc. MIT License
+  - github.com/spf13/cobra The Cobra Authors Apache 2.0 License
+  - gorm.io/driver/sqlite Jinzhu MIT License
+  - gorm.io/gorm Jinzhu MIT License
+
+Indirect dependencies:
+  - github.com/aymanbagabas/go-osc52/v2 Ayman Bagabas MIT License
+  - github.com/charmbracelet/colorprofile Charmbracelet, Inc. MIT License
+  - github.com/charmbracelet/x/ansi Charmbracelet, Inc. MIT License
+  - github.com/charmbracelet/x/cellbuf Charmbracelet, Inc. MIT License
+  - github.com/charmbracelet/x/term Charmbracelet, Inc. MIT License
+  - github.com/clipperhouse/displaywidth Matt Sherman MIT License
+  - github.com/clipperhouse/uax29/v2 Matt Sherman MIT License
+  - github.com/jinzhu/inflection Jinzhu MIT License
+  - github.com/jinzhu/now Jinzhu MIT License
+  - github.com/lucasb-eyer/go-colorful Lucas Beyer MIT License
+  - github.com/mattn/go-isatty Yasuhiro Matsumoto MIT License
+  - github.com/mattn/go-runewidth Yasuhiro Matsumoto MIT License
+  - github.com/mattn/go-sqlite3 Yasuhiro Matsumoto MIT License
+  - github.com/muesli/ansi Christian Muehlhaeuser MIT License
+  - github.com/muesli/cancelreader Erik Geiser and Christian Muehlhaeuser MIT License
+  - github.com/muesli/termenv Christian Muehlhaeuser MIT License
+  - github.com/rivo/uniseg Oliver Kuederle MIT License
+  - github.com/spf13/pflag Alex Ogier and The Go Authors BSD 3-Clause License
+  - github.com/xo/terminfo Anmol Sethi MIT License
+  - golang.org/x/sys The Go Authors BSD 3-Clause License
+  - golang.org/x/text The Go Authors BSD 3-Clause License
+
+Windows builds only:
+  - github.com/erikgeiser/coninput Erik G. MIT License
+  - github.com/inconshreveable/mousetrap Alan Shreve Apache 2.0 License
+  - github.com/mattn/go-localereader Yasuhiro Matsumoto MIT License (stated in its README)
+
+Also compiled into the binaries:
+  - SQLite, embedded in github.com/mattn/go-sqlite3, public domain
+  - Go standard library and runtime, The Go Authors, BSD 3-Clause License
+  - musl libc (Linux release binaries only, statically linked), Rich Felker, et al., MIT License
