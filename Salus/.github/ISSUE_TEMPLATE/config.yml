@@ -1,0 +1,7 @@
+# Every issue uses a form, so a maintainer can confirm a concept before a pull
+# request (CONTRIBUTING.md, "Contribution workflow").
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/jabbott-iii/Salus/security/advisories/new
+    about: Report vulnerabilities privately through GitHub's private vulnerability reporting (see SECURITY.md), never in a public issue.

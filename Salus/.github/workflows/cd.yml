@@ -1,0 +1,424 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # go-sqlite3 needs CGO, so each target is built with a native C toolchain on
+  # a runner of the matching OS (darwin/amd64 is cross-compiled by clang on the
+  # Apple Silicon runner; windows/arm64 uses a pinned llvm-mingw toolchain).
+  # Third-party actions and downloads are pinned by commit SHA or SHA-256.
+  # The Linux builds and the release job name Ubuntu 24.04 instead of using
+  # ubuntu-latest, so release builds change OS only when these labels are
+  # bumped (intel/notes.md Q-011).
+  build:
+    name: Build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64, runner: ubuntu-24.04, smoke: true }
+          - { goos: linux, goarch: arm64, runner: ubuntu-24.04-arm, smoke: true }
+          - { goos: darwin, goarch: arm64, runner: macos-latest, smoke: true }
+          - { goos: darwin, goarch: amd64, runner: macos-latest, smoke: false }
+          - { goos: windows, goarch: amd64, runner: windows-latest, smoke: true }
+          - { goos: windows, goarch: arm64, runner: windows-11-arm, smoke: true }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The windows-11-arm image has no C compiler targeting aarch64-w64-mingw32,
+      # which cgo needs; install a pinned, checksum-verified llvm-mingw.
+      - name: Install llvm-mingw (windows/arm64)
+        if: matrix.goos == 'windows' && matrix.goarch == 'arm64'
+        shell: pwsh
+        env:
+          LLVM_MINGW_VERSION: "20260908"
+          LLVM_MINGW_SHA256: "7fe35f60407473c420ac72b25137f54385b0affd2c42efd507c0062fc626ab56"
+        run: |
+          $name = "llvm-mingw-$env:LLVM_MINGW_VERSION-ucrt-aarch64"
+          $zip = Join-Path $env:RUNNER_TEMP "$name.zip"
+          Invoke-WebRequest -Uri "https://github.com/mstorsjo/llvm-mingw/releases/download/$env:LLVM_MINGW_VERSION/$name.zip" -OutFile $zip
+          $hash = (Get-FileHash -Algorithm SHA256 -Path $zip).Hash.ToLowerInvariant()
+          if ($hash -ne $env:LLVM_MINGW_SHA256) { throw "llvm-mingw checksum mismatch: $hash" }
+          # Windows' bundled bsdtar reads zip files; Git's GNU tar (possibly first on PATH) cannot.
+          & "$env:SystemRoot\System32\tar.exe" -xf $zip -C $env:RUNNER_TEMP
+          if ($LASTEXITCODE -ne 0) { throw "extracting llvm-mingw failed with exit code $LASTEXITCODE" }
+          Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $env:RUNNER_TEMP "$name\bin")
+          Add-Content -Path $env:GITHUB_ENV -Value "CC=aarch64-w64-mingw32-clang"
+
+      - name: Set release metadata
+        id: meta
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            # manual run fallback
+            echo "tag=manual-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build binary
+        id: build
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "1"
+          VERSION: ${{ steps.meta.outputs.tag }}
+        run: |
+          ext=""
+          if [ "$GOOS" = "windows" ]; then ext=".exe"; fi
+          out="dist/salus_${GOOS}_${GOARCH}${ext}"
+          tags=""
+          ldflags="-s -w -X main.version=${VERSION}"
+          if [ "$GOOS" = "linux" ]; then
+            # Link statically so the binary does not depend on the runner's glibc
+            # version; netgo/osusergo avoid glibc NSS, and extension loading
+            # (dlopen) is not used by salus.
+            tags="sqlite_omit_load_extension,osusergo,netgo"
+            ldflags="$ldflags -linkmode external -extldflags -static"
+          fi
+          mkdir -p dist
+          go build -tags "$tags" -ldflags="$ldflags" -o "$out" .
+          echo "binary=$out" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test binary
+        if: matrix.smoke
+        shell: bash
+        env:
+          SALUS_DB_PATH: ${{ runner.temp }}/smoke.db
+          VERSION: ${{ steps.meta.outputs.tag }}
+        run: |
+          bin="./${{ steps.build.outputs.binary }}"
+          # Confirms the -X main.version ldflag took effect.
+          got="$("$bin" --version)"
+          if [ "$got" != "salus version $VERSION" ]; then echo "unexpected --version output: $got"; exit 1; fi
+          if [ "${{ matrix.goos }}" = "linux" ]; then
+            file "$bin" | grep -q "statically linked"
+          fi
+          "$bin" check list | grep misconfig >/dev/null
+          # check run exits 0/1/2 for PASS/WARN/FAIL. Runner host state varies, so
+          # only an exit code above 1 fails here; persistence is asserted below.
+          status=0
+          "$bin" check run --only misconfig || status=$?
+          if [ "$status" -gt 1 ]; then echo "check run exited with $status"; exit 1; fi
+          "$bin" jobs show 1 | grep misconfig >/dev/null
+
+      - name: Upload binary
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bin-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ steps.build.outputs.binary }}
+          if-no-files-found: error
+
+  # Builds the container image from the Dockerfile natively on each
+  # architecture (emulated CGO builds are slow) and smoke tests it like
+  # docker.yml. The images reach the publish job as artifacts, so this job
+  # needs no write permission and nothing is pushed before the release
+  # exists. Manual runs build and test the images without publishing them.
+  image:
+    name: Image linux/${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set release metadata
+        id: meta
+        shell: bash
+        run: |
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            # Image tags are derived from the release tag (image-publish), so
+            # an unusable tag fails here, before the release job (which needs
+            # this job) creates an immutable release for it.
+            if [[ ! "${GITHUB_REF_NAME}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "tag ${GITHUB_REF_NAME} is not vMAJOR.MINOR.PATCH[-PRERELEASE]"
+              exit 1
+            fi
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            # manual run fallback
+            echo "tag=manual-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build image
+        shell: bash
+        env:
+          ARCH: ${{ matrix.arch }}
+          VERSION: ${{ steps.meta.outputs.tag }}
+        run: |
+          # No BuildKit attestation manifests: provenance is attested for the
+          # published multi-arch image instead.
+          docker buildx build --load --provenance=false --sbom=false \
+            --platform "linux/${ARCH}" \
+            --build-arg "VERSION=${VERSION}" \
+            --label "org.opencontainers.image.version=${VERSION}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --tag "salus:${ARCH}" .
+
+      - name: Smoke test image
+        shell: bash
+        env:
+          ARCH: ${{ matrix.arch }}
+          VERSION: ${{ steps.meta.outputs.tag }}
+        run: |
+          image="salus:${ARCH}"
+          got="$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$image")"
+          if [ "$got" != "linux/${ARCH}" ]; then echo "image platform is $got, want linux/${ARCH}"; exit 1; fi
+          # Confirms the VERSION build argument took effect.
+          got="$(docker run --rm "$image" --version)"
+          if [ "$got" != "salus version ${VERSION}" ]; then echo "unexpected --version output: $got"; exit 1; fi
+          # The image must run as an unprivileged user (SEC-002).
+          uid="$(docker run --rm --entrypoint id "$image" -u)"
+          if [ "$uid" != "10001" ]; then echo "image runs as UID $uid, want 10001"; exit 1; fi
+          # check run exits 0/1/2 for PASS/WARN/FAIL; only an exit code above 1
+          # fails here, and persistence is asserted by the next command.
+          docker volume create salus-smoke
+          status=0
+          docker run --rm -v salus-smoke:/app/data "$image" check run --only misconfig || status=$?
+          if [ "$status" -gt 1 ]; then echo "check run exited with $status"; exit 1; fi
+          docker run --rm -v salus-smoke:/app/data "$image" jobs show 1 | grep misconfig >/dev/null
+
+      - name: Save image
+        shell: bash
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: docker save --output "salus-image-linux-${ARCH}.tar" "salus:${ARCH}"
+
+      - name: Upload image
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: image-linux-${{ matrix.arch }}
+          path: salus-image-linux-${{ matrix.arch }}.tar
+          if-no-files-found: error
+
+  # Packages the archives and signs their build provenance (SEC-006). Only
+  # first-party actions may run in this job: id-token: write lets any step in
+  # it mint signing credentials for this workflow, which a third-party action
+  # could use to forge provenance. Manual runs attest too, so this job can be
+  # tested before a tag.
+  package:
+    name: Package and attest
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: bin-*
+          merge-multiple: true
+          path: dist
+
+      - name: Package release artifacts
+        shell: bash
+        run: |
+          cd dist
+          for bin in salus_*; do
+            name="${bin%.exe}"
+            chmod +x "$bin"
+            if [ "$bin" != "$name" ]; then
+              zip -q "${name}.zip" "$bin"
+            else
+              tar -czf "${name}.tar.gz" "$bin"
+            fi
+            rm "$bin"
+          done
+          ls -l
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          cd dist
+          sha256sum -- * > checksums.txt
+
+      # Signs SLSA build provenance for every archive in checksums.txt. The
+      # verify command is in README.md ("Verifying build provenance").
+      - name: Attest build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-checksums: dist/checksums.txt
+
+      - name: Upload release archives
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-archives
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
+          if-no-files-found: error
+
+  # Publishes the attested archives with contents: write, but without the
+  # signing permissions of the package job. Manual runs stop after the download.
+  # It also waits for the container images, because a release is immutable
+  # once published: a tag whose image failed to build must not get one.
+  release:
+    name: Publish release
+    needs: [package, image]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release archives
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-archives
+          path: dist
+
+      - name: Create GitHub Release
+        id: gh-release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          # A tag with a pre-release suffix (vX.Y.Z-rc.1) makes a pre-release,
+          # which GitHub never marks as the latest release. The action
+          # publishes a pre-release before uploading its assets, which this
+          # repository's immutable releases reject, so a pre-release is
+          # created as a draft and published by the next step. Stable
+          # releases are unchanged: the action uploads, then publishes.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          draft: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
+
+      - name: Publish pre-release
+        if: github.ref_type == 'tag' && contains(github.ref_name, '-')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.gh-release.outputs.id }}
+        run: |
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/releases/${RELEASE_ID}" -F draft=false \
+            --jq '"published \(.tag_name): prerelease \(.prerelease), draft \(.draft)"'
+
+  # Publishes the smoke-tested images to GitHub Container Registry as
+  # ghcr.io/<owner>/salus and attests the build provenance of the multi-arch
+  # image. Tag runs only, after the GitHub Release exists. Like the package
+  # job, it runs only first-party actions: id-token: write lets any step in
+  # it mint signing credentials (SEC-006). Registry access uses the docker
+  # CLI with the job's GITHUB_TOKEN.
+  image-publish:
+    name: Publish image
+    needs: [image, release]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Image names
+        id: names
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          # Image tags drop the tag's "v". Stable releases also move the
+          # <major>.<minor> and latest tags; pre-releases (vX.Y.Z-rc.1) do not.
+          if [[ ! "${GITHUB_REF_NAME}" =~ ^v([0-9]+\.[0-9]+)\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "tag ${GITHUB_REF_NAME} is not vMAJOR.MINOR.PATCH[-PRERELEASE]; image tags cannot be derived from it"
+            exit 1
+          fi
+          version="${GITHUB_REF_NAME#v}"
+          image="ghcr.io/${REPOSITORY,,}" # registry names are lowercase
+          tags="${image}:${version}"
+          if [ -z "${BASH_REMATCH[2]}" ]; then
+            tags="${tags} ${image}:${BASH_REMATCH[1]} ${image}:latest"
+          fi
+          {
+            echo "image=${image}"
+            echo "version=${version}"
+            echo "tags=${tags}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download images
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: image-linux-*
+          merge-multiple: true
+          path: images
+
+      - name: Log in to GitHub Container Registry
+        shell: bash
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "${GITHUB_ACTOR}" --password-stdin
+
+      - name: Push images
+        id: push
+        shell: bash
+        env:
+          IMAGE: ${{ steps.names.outputs.image }}
+          VERSION: ${{ steps.names.outputs.version }}
+          TAGS: ${{ steps.names.outputs.tags }}
+        run: |
+          sources=()
+          for arch in amd64 arm64; do
+            docker load --input "images/salus-image-linux-${arch}.tar"
+            docker tag "salus:${arch}" "${IMAGE}:${VERSION}-${arch}"
+            docker push "${IMAGE}:${VERSION}-${arch}"
+            sources+=("${IMAGE}:${VERSION}-${arch}")
+          done
+          tag_args=()
+          for tag in $TAGS; do tag_args+=(--tag "$tag"); done
+          # The runners' Docker uses the classic image store, so the pushed
+          # images have Docker media types and this creates a Docker manifest
+          # list. Such a list cannot carry annotations (buildx drops them), so
+          # the OCI labels in each image are the metadata.
+          docker buildx imagetools create "${tag_args[@]}" "${sources[@]}"
+          digest="$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" --format '{{json .Manifest}}' | jq -r .digest)"
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then echo "unexpected image digest: $digest"; exit 1; fi
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          docker buildx imagetools inspect "${IMAGE}:${VERSION}"
+
+      # Signs SLSA build provenance for the multi-arch image. The attestation
+      # is stored with GitHub, where gh attestation verify oci://... finds it
+      # (README), and is not pushed to the registry: there it would become a
+      # sha256-<digest> package version, published after the image, and GHCR
+      # would show that tag instead of latest in the package's docker pull
+      # command (intel/plan.md P8-2).
+      - name: Attest image provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: ${{ steps.names.outputs.image }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+
+      - name: Log out of GitHub Container Registry
+        if: always()
+        shell: bash
+        run: docker logout ghcr.io

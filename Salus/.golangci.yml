@@ -1,0 +1,23 @@
+# golangci-lint configuration (intel/plan.md P4-3). It pins what golangci-lint
+# v2 did without a configuration file when CI adopted v2.13.2, so the linter
+# set cannot drift with new golangci-lint releases. CI runs it on Linux,
+# macOS, and Windows (.github/workflows/ci.yml), and `make lint` runs it for
+# all three GOOS values. Change the set only with a recorded decision.
+version: "2"
+
+run:
+  # Analyze test files too. intel/maint.md section 4 relies on this: the
+  # functions in pkg/health-decode.go are called on every platform only
+  # by tests.
+  tests: true
+
+linters:
+  # The "standard" group of golangci-lint v2.13.2, listed explicitly so that a
+  # later change to that group does not change what CI checks.
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused

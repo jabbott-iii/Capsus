@@ -1,0 +1,51 @@
+name: Feature or change proposal
+description: Pitch an addition or change. A maintainer confirms the concept here before a pull request is opened.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Salus works issue-first: open this proposal, wait for a maintainer to confirm the concept, then open a pull request that links it.
+        If an issue for this already exists, comment there instead.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What you are trying to do, and why Salus does not cover it today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: The behavior you propose, with example commands and output if possible.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: areas
+    attributes:
+      label: Areas affected
+      multiple: true
+      options:
+        - Health checks
+        - Output formats and exit codes
+        - Job history and the database
+        - Command-line flags or configuration
+        - Container image
+        - Documentation
+        - CI, security scanning, or releases
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility
+      description: Does this change a public contract (command names and flags, exit codes, check keys, misconfig rule IDs, JSON or report formats, environment variables, the database schema, or exported pkg identifiers; see the Public contracts section of CLAUDE.md)? If so, how would existing users be affected?
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to implement this after the concept is confirmed.
