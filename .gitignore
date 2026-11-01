@@ -1,0 +1,46 @@
+# If you prefer the allow list template instead of the deny list, see community template:
+# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
+#
+# Binaries for programs and plugins
+*.exe
+*.exe~
+# Binary produced by `make build`
+/munus
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Code coverage profiles and other test artifacts
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Task data written by `munus export` (default file name) into the working directory
+munus-export-*.json
+
+# env file
+.env
+
+# Editor/IDE
+# .idea/
+# .vscode/
+
+# Personal Claude Code instructions and settings (shared ones are CLAUDE.md and
+# .claude/settings.json)
+CLAUDE.local.md
+.claude/settings.local.json

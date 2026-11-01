@@ -1,0 +1,22 @@
+# Keep VCS data, editor state, local databases and build output out of the
+# Docker build context.
+.git
+.github
+.idea
+.junie
+.devcontainer
+intel
+.claude
+CLAUDE.md
+CLAUDE.local.md
+.env
+**/*.db
+**/*.db-journal
+**/*.db-wal
+**/*.db-shm
+**/munus-export-*.json
+/munus
+/munus.exe
+*.out
+coverage.*
+dist
