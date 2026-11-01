@@ -1,0 +1,75 @@
+name: Bug report
+description: Salus reports a wrong result, fails, or behaves differently from its documentation.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Please search existing issues first.
+        Do not report security vulnerabilities here; report them privately as described in [SECURITY.md](https://github.com/jabbott-iii/Salus/blob/main/SECURITY.md) instead.
+  - type: input
+    id: version
+    attributes:
+      label: Salus version
+      description: Output of `salus --version`.
+      placeholder: salus version v1.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Container image
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment details
+      description: Distribution or OS version, CPU architecture, and versions of related tools (docker, kubectl, systemd) if the problem involves them.
+      placeholder: Ubuntu 24.04, amd64, docker 28.0
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The full command you ran, with every flag.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead, including the exit code (`echo $?`).
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: The report, preferably with `--json`. Remove host names, paths, or anything else you do not want to share.
+      render: text
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: The output above contains no secrets, credentials, or private data.
+          required: true

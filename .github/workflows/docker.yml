@@ -1,0 +1,63 @@
+name: Docker
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docker-smoke-test:
+    name: Build and smoke test Docker image
+    runs-on: ubuntu-latest
+
+    env:
+      IMAGE_NAME: salus:${{ github.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build Docker image
+        run: docker build --tag "$IMAGE_NAME" --file Dockerfile .
+
+      - name: Smoke test CLI help
+        run: |
+          docker run --rm "$IMAGE_NAME" --help
+          docker run --rm "$IMAGE_NAME" --version
+
+      # The image must run as an unprivileged user (SEC-002).
+      - name: Verify non-root user
+        run: |
+          uid="$(docker run --rm --entrypoint id "$IMAGE_NAME" -u)"
+          echo "image user id: $uid"
+          if [ "$uid" != "10001" ]; then echo "expected the image to run as UID 10001"; exit 1; fi
+
+      # Exercises the database on the image's /app/data volume across two runs,
+      # as the image's non-root user.
+      - name: Smoke test database access
+        run: |
+          docker volume create salus-smoke
+          # check run exits 0/1/2 for PASS/WARN/FAIL; only an exit code above 1
+          # fails here, and persistence is asserted by the next command.
+          status=0
+          docker run --rm -v salus-smoke:/app/data "$IMAGE_NAME" check run --only misconfig || status=$?
+          if [ "$status" -gt 1 ]; then echo "check run exited with $status"; exit 1; fi
+          docker run --rm -v salus-smoke:/app/data "$IMAGE_NAME" jobs show 1 | grep misconfig >/dev/null
+
+      # The image has no docker or kubectl CLI, so these checks must report WARN
+      # as documented in the README (SEC-007); exit code 1 means WARN.
+      - name: Smoke test unsupported in-container checks
+        run: |
+          status=0
+          out="$(docker run --rm "$IMAGE_NAME" check run --only docker-status,kubernetes-status --no-save --json)" || status=$?
+          echo "$out"
+          if [ "$status" -ne 1 ]; then echo "expected exit code 1 (WARN), got $status"; exit 1; fi
+          echo "$out" | grep -qF '"message": "docker CLI not found in PATH"'
+          echo "$out" | grep -qF '"message": "kubectl CLI not found in PATH"'

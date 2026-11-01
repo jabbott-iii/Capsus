@@ -1,0 +1,38 @@
+# Dependency update automation (SEC-005). Actions stay pinned by commit SHA and
+# Docker base images by digest; Dependabot updates the pin and its version
+# comment or tag together.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+
+  # Coupled actions are grouped so they move in one PR: every
+  # github/codeql-action sub-action must run the same version (a split bump
+  # fails CodeQL), and upload-artifact/download-artifact hand the CD build
+  # outputs between jobs. Artifact bumps only run in cd.yml; test them with a
+  # workflow_dispatch CD run before tagging (see intel/maint.md section 7).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      codeql-action:
+        patterns: ["github/codeql-action", "github/codeql-action/*"]
+      artifact-actions:
+        patterns: ["actions/upload-artifact", "actions/download-artifact"]
+
+  # Builder and runtime must stay on the same Alpine release (see Dockerfile), and
+  # Go/Alpine version moves are deliberate changes, so only digest and patch
+  # updates are automated, grouped into one PR. Bump the tags together by hand.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    groups:
+      base-images:
+        patterns: ["*"]
