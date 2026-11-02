@@ -26,7 +26,7 @@ Never run `git subtree`, commit or push, and never edit files under the tool fol
   in after the import.
 - The tag exists upstream: `git ls-remote --tags <url>` (for an annotated tag, the `^{}` line is
   its commit). Ask before importing anything that isn't a
-  release tag. Tags made before 2026-10-13 carry the tool's retired `AGENTS.md` and `intel/`
+  release tag. Most tags made before 2026-10-13 carry the tool's retired `AGENTS.md` and `intel/`
   instead of its `CLAUDE.md` and `.claude/`; say so if the tag is one of them.
 - The tool exports `pkg.Main` at that tag (D-4, Plan 1 Phase 0). If it doesn't, say that the
   launcher can't use the import yet and ask whether to continue.
@@ -50,25 +50,31 @@ Then wait until the maintainer says it has run.
 
 ## 3. Follow-up (leave everything uncommitted)
 
+When the maintainer runs several subtree merges in a row, do this once, after the last: every
+`git subtree` command needs a clean working tree, and step 2 already edits `registry.go`.
+
 1. HEAD is now a merge commit and `HEAD^2` the squash commit (`git log -1 HEAD^2` shows its
    `git-subtree-dir:` and `git-subtree-split:` lines). `git diff --stat HEAD^1 HEAD` must list
-   only paths under `<Tool>/`.
+   only paths under `<Tool>/`. After several subtree merges in a row, check each one with
+   `git diff --stat <merge>^1 <merge>` (`git log --first-parent --oneline` lists them).
 2. Set the tool's bundled version in the launcher registry to `<tag>` (P-011): its
    `<tool>Version` constant in `internal/launcher/registry.go`.
-3. Root module (once every tool folder exists): keep the `require`/`replace` pair; raise the
-   root `go` or `toolchain` line if the tool's is now higher (D-9); run `go mod tidy` at the root
-   only, after asking, since it rewrites `go.mod` and `go.sum`.
+3. Root module: keep the `require`/`replace` pair; raise the root `go` or `toolchain` line if
+   the tool's is now higher (D-9); run `go mod tidy` at the root only, after asking, since it
+   rewrites `go.mod` and `go.sum`.
 4. `make deps-drift` and report every line it prints (R-1). Drift is fixed upstream; a root-level
    bump is a stopgap only for a reachable vulnerability (Q-8).
-5. Licenses: if modules were added or removed, regenerate `THIRD_PARTY_LICENSES` and update the
-   `NOTICE.txt` module list (P-040, P-041). Until the generator exists, list this as open.
+5. Licenses: run `make licenses` (P-040). It rewrites `THIRD_PARTY_LICENSES` when a module was
+   added or removed or a license or `NOTICE` text changed, the tool's own included, and reports
+   every module the `NOTICE.txt` list is missing or no longer needs; add or remove those lines
+   in its existing format (P-041). Review a new module's license before you list it.
 6. Docs: the README tool table and configuration section if the tool's description, TUI status
    or variables changed; the tool table in `AGENTS.md` likewise.
 7. `make keys-check`, `make check-all` and `make smoke`, then `/pre-pr` with the commit before
    the subtree merge as its base (`HEAD^1` while the merge is still `HEAD`), so the import is in
-   range.
-   During Phase 1, steps 3 and 7 run after the last of the three imports; earlier imports
-   report them as not runnable yet (layout).
+   range. After several subtree merges in a row, the base is the first parent of the first of
+   them (`git log --first-parent --oneline` shows it): `HEAD^1` would leave the earlier imports
+   out of range.
 
 ## 4. Report
 

@@ -22,11 +22,13 @@ Everything above is shared with other agents; this section is for Claude Code on
 - **Hook.** After you edit one of the launcher's `.go` files, `.claude/hooks/go-post-edit.sh`
   runs `gofmt -s -w` on it and reports a missing license header. It needs `jq` or `python3`;
   without either it does nothing, so run `make fmt` yourself.
-- **Nested instructions.** A tool folder imported from a release made after 2026-10-13 brings
-  the tool's own `CLAUDE.md`, `.claude/rules/` and skills, which load when you work with files
-  there. Use them to understand the tool; for anything that writes files or runs commands,
-  `AGENTS.md` and `.claude/rules/tool-folders.md` win. Don't run a tool's skills in Capsus; one
-  whose name clashes with a Capsus skill appears with the folder prefix, such as
-  `/Munus:release-prep`.
+- **Nested instructions.** `Munus/`, `Cryptare/` and `Salus/` bring the tools' own `CLAUDE.md`,
+  `.claude/rules/` and skills, which load when you work with files there. Each also brings a
+  `.claude/settings.json`, and Cryptare brings agents (`change-reviewer`, `docs-verifier`) and
+  hooks. All of them describe the standalone repositories. Use them to understand the tool; for
+  anything that writes files or runs commands, `AGENTS.md` and `.claude/rules/tool-folders.md`
+  win. Don't run a tool's skills in Capsus; one whose name clashes with a Capsus skill appears
+  with the folder prefix, such as `/Munus:release-prep`. Capsus' reviewer is
+  `.claude/agents/change-reviewer.md`, not Cryptare's agent of the same name.
 - **Personal overrides** go in `CLAUDE.local.md` and `.claude/settings.local.json`; both are
   git-ignored.

@@ -1,0 +1,6 @@
+# Keep LF line endings in the Go module files on every checkout. `go mod tidy -diff` (make
+# tidy-check and the "Verify dependencies" step of ci.yml) compares go.sum byte for byte, so a
+# CRLF checkout, the default on Windows runners, fails it. A pattern without a slash matches at
+# every depth, so the tool folders' module files are covered too.
+go.mod text eol=lf
+go.sum text eol=lf

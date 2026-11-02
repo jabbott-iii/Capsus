@@ -23,12 +23,11 @@ import (
 )
 
 // The release tags the tool folders were imported at, which each tool reports for --version.
-// /tool-sync sets them after every git subtree add or pull; "unreleased" means that the
-// folder has not been imported from a release yet.
+// /tool-sync sets them after every git subtree add or pull.
 const (
-	munusVersion    = "unreleased"
-	cryptareVersion = "unreleased"
-	salusVersion    = "unreleased"
+	munusVersion    = "v1.0.1"
+	cryptareVersion = "v1.4.1"
+	salusVersion    = "v1.2.1"
 )
 
 // Bundled returns the registry: the bundled tools in menu order, with the descriptions of the

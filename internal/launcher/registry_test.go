@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -53,6 +54,18 @@ func TestBundled(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("Bundled() = %+v, want %+v", got, want)
+	}
+}
+
+// TestBundledVersionsAreReleaseTags rejects a placeholder or mistyped bundled version: each one
+// must look like a release tag, using the pattern the root and tool Makefiles enforce for
+// VERSION.
+func TestBundledVersionsAreReleaseTags(t *testing.T) {
+	tag := regexp.MustCompile(`^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$`)
+	for _, tool := range Bundled() {
+		if !tag.MatchString(tool.Version) {
+			t.Errorf("%s version %q is not a release tag (vMAJOR.MINOR.PATCH)", tool.Name, tool.Version)
+		}
 	}
 }
 

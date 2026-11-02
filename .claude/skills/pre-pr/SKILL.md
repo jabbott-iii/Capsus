@@ -9,8 +9,10 @@ allowed-tools: Bash(git status *) Bash(git diff *) Bash(git ls-files *) Bash(git
 
 Compare against `$ARGUMENTS` if given, otherwise against `HEAD` (uncommitted work, untracked
 files included). After a tool sync, the base is the commit before the maintainer's subtree merge
-(`HEAD^1` right after it), so the import is in range. Don't commit, push or open a pull request.
-Report problems; fix them only if the user asks.
+(`HEAD^1` right after it), so the import is in range. After several subtree merges in a row, it
+is the first parent of the first of them (`git log --first-parent --oneline` shows it), so every
+import is in range. Don't commit, push or open a pull request. Report problems; fix them only if
+the user asks.
 
 ## 1. Scope
 
@@ -21,9 +23,10 @@ Run `git status --short` and `git diff --stat <base>`, then classify the changed
   maintainer's `git subtree` merge, stop and report it: those folders change only upstream
   (`AGENTS.md`, Tool folders).
 - **modules**: `go.mod`, `go.sum`
-- **build**: `Makefile`, `scripts/**`, `Dockerfile`, `.dockerignore`, `tools/**`
+- **build**: `Makefile`, `scripts/**`, `Dockerfile`, `.dockerignore`, `.gitattributes`, `tools/**`
 - **workflows**: `.github/workflows/*`, `.github/dependabot.yml`
-- **docs**: `*.md`, `.github/*.md`, `NOTICE.txt`
+- **docs**: `*.md`, `.github/*.md`
+- **licenses**: `NOTICE.txt`, `THIRD_PARTY_LICENSES`, `tools/licenses/**`
 - **instructions**: `AGENTS.md`, `CLAUDE.md`, `.claude/**`
 
 ## 2. Environment
@@ -31,9 +34,9 @@ Run `git status --short` and `git diff --stat <base>`, then classify the changed
 Record `go version`, `go env CGO_ENABLED` and `go env CC`. If Go is older than 1.26, CGO is off
 or there is no C compiler, skip the Go checks, say so, and continue with the rest.
 
-Run `make layout`. Until the tool folders and the root `go.mod` exist (Plan 1 Phases 1 and 2)
-it fails and every module target stops there: report the module checks as "not runnable yet
-(layout)", not as a failure of this change.
+Run `make layout`; every module target depends on it. If it fails, the root module or a tool
+folder lacks its `go.mod`, which since Phase 1 is a real failure (for example a broken subtree
+pull): report which one, and the module checks as "not runnable (layout)".
 
 ## 3. Checks (only what applies, in this order)
 
@@ -41,13 +44,17 @@ it fails and every module target stops there: report the module checks as "not r
 |---|---|
 | always | `make keys-check` |
 | launcher | Every changed `.go` file starts with the Apache-2.0 header; `make check` |
-| modules | `make check-all`; `go.sum` changed only for the modules involved; `make deps-drift` (paste its output) |
-| tool sync (a subtree merge is in range) | `make check-all`, `make deps-drift`, `make smoke` |
+| modules | `make check-all`; `go.sum` changed only for the modules involved; `make deps-drift` (paste its output); `go test -count=1 ./tools/licenses` (its `TestRepositoryLicensesUpToDate` is the license check) |
+| tool sync (a subtree merge is in range) | `make check-all`, `make deps-drift`, `make smoke`, `go test -count=1 ./tools/licenses` |
 | build, workflows | `make check-all`; every new or changed `uses:` pinned to a full commit SHA with a `# vX.Y.Z` comment; no `permissions` widened |
+| licenses | `go test -count=1 ./tools/licenses`; `THIRD_PARTY_LICENSES` changed only through `make licenses`; each new `NOTICE.txt` line's holder and license match its module's section in `THIRD_PARTY_LICENSES` |
 | docs | Every command, flag, path and version in the changed lines exists in the repository |
 | instructions | Frontmatter parses; `paths:` globs match the intended files (planned files may not exist yet); every named make target exists in the `Makefile` |
 
-Don't count a skipped or partial run as passed. `make lint`, `make sec`, `make vuln` and
+Don't count a skipped or partial run as passed. While `make check-all` stops at `make sec` on
+the known gosec findings in `Salus/pkg` (`AGENTS.md`, Commands), report `make sec` as failing on
+them and run `make vuln` and `make actionlint` on their own; a new finding in the launcher is a
+real failure, one in a tool folder an upstream report. `make lint`, `make sec`, `make vuln` and
 `make actionlint` use `go run …@<version>` and need network access to the module proxy.
 
 ## 4. Review the diff

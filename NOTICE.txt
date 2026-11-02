@@ -2,9 +2,56 @@ Capsus
 
 Copyright 2026 Joseph Anthony Abbott III
 
-This product includes third-party software:
-  - github.com/charmbracelet/bubbletea v1.3.10 Charmbracelet, Inc. MIT License
-  - github.com/charmbracelet/lipgloss v1.1.0 Charmbracelet, Inc. MIT License
-  - gorm.io/driver/sqlite v1.6.0 Jinzhu MIT License
-  - gorm.io/gorm v1.31.2 Jinzhu MIT License
-  - github.com/spf13/cobra v1.10.2 Steve Francia Apache 2.0 License
+This product includes third-party software. Each component keeps its own license;
+the modules below are compiled into the Capsus release binaries. The full license
+texts are in THIRD_PARTY_LICENSES, which is shipped with every release archive.
+The module versions compiled into a binary can be listed with
+`go version -m <binary>`.
+
+Bundled tools (THIRD_PARTY_LICENSES also reproduces their LICENSE and NOTICE files):
+  - github.com/jabbott-iii/Cryptare Joseph Anthony Abbott III Apache 2.0 License
+  - github.com/jabbott-iii/Munus Joseph Anthony Abbott III Apache 2.0 License
+  - github.com/jabbott-iii/Salus Joseph Anthony Abbott III Apache 2.0 License
+
+Direct dependencies:
+  - github.com/charmbracelet/bubbletea Charmbracelet, Inc. MIT License
+  - github.com/charmbracelet/lipgloss Charmbracelet, Inc. MIT License
+  - github.com/spf13/cobra The Cobra Authors Apache 2.0 License
+
+Indirect dependencies:
+  - github.com/aymanbagabas/go-osc52/v2 Ayman Bagabas MIT License
+  - github.com/charmbracelet/colorprofile Charmbracelet, Inc. MIT License
+  - github.com/charmbracelet/x/ansi Charmbracelet, Inc. MIT License
+  - github.com/charmbracelet/x/cellbuf Charmbracelet, Inc. MIT License
+  - github.com/charmbracelet/x/term Charmbracelet, Inc. MIT License
+  - github.com/clipperhouse/displaywidth Matt Sherman MIT License
+  - github.com/clipperhouse/uax29/v2 Matt Sherman MIT License
+  - github.com/jinzhu/inflection Jinzhu MIT License
+  - github.com/jinzhu/now Jinzhu MIT License
+  - github.com/lucasb-eyer/go-colorful Lucas Beyer MIT License
+  - github.com/mattn/go-isatty Yasuhiro Matsumoto MIT License
+  - github.com/mattn/go-runewidth Yasuhiro Matsumoto MIT License
+  - github.com/mattn/go-sqlite3 Yasuhiro Matsumoto MIT License
+  - github.com/muesli/ansi Christian Muehlhaeuser MIT License
+  - github.com/muesli/cancelreader Erik Geiser and Christian Muehlhaeuser MIT License
+  - github.com/muesli/termenv Christian Muehlhaeuser MIT License
+  - github.com/rivo/uniseg Oliver Kuederle MIT License
+  - github.com/spf13/pflag Alex Ogier and The Go Authors BSD 3-Clause License
+  - github.com/xo/terminfo Anmol Sethi MIT License
+  - golang.org/x/crypto The Go Authors BSD 3-Clause License
+  - golang.org/x/sys The Go Authors BSD 3-Clause License
+  - golang.org/x/text The Go Authors BSD 3-Clause License
+  - gorm.io/driver/sqlite Jinzhu MIT License
+  - gorm.io/gorm Jinzhu MIT License
+
+Windows builds only:
+  - github.com/erikgeiser/coninput Erik G. MIT License
+  - github.com/inconshreveable/mousetrap Alan Shreve Apache 2.0 License
+  - github.com/mattn/go-localereader Yasuhiro Matsumoto MIT License (stated in its README)
+
+Also compiled into the binaries:
+  - SQLite, embedded in github.com/mattn/go-sqlite3, public domain
+  - Go standard library and runtime, The Go Authors, BSD 3-Clause License
+  - musl libc (Linux release binaries only, statically linked), Rich Felker, et al., MIT License
+  - MinGW-w64 runtime (Windows release binaries only, parts statically linked), the mingw-w64
+    project and other authors, under the licenses reproduced in THIRD_PARTY_LICENSES

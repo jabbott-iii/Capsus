@@ -7,8 +7,8 @@ paths:
 
 # The launcher: root Go files, `internal/launcher`, smoke test
 
-The launcher is written (Plan 1 P-020 to P-024 in `AGENTS.md`) but builds only once the tool
-folders exist, imported at releases that export `pkg.Main`. Keep it to this contract;
+The launcher is written (Plan 1 P-020 to P-024 in `AGENTS.md`) and builds against the tool
+folders, imported at releases that export `pkg.Main`. Keep it to this contract;
 `scripts/smoke.sh` checks the command-line side of it.
 
 ## Structure
@@ -87,10 +87,14 @@ folders exist, imported at releases that export `pkg.Main`. Keep it to this cont
 
 The tools share the `capsus` process. Cryptare and Salus register signal handlers around single
 operations and stop them on return, and Munus writes errors to `os.Stderr` directly. Cryptare's
-password prompt (`readTerminalPassword` in `Cryptare/pkg/logic-cli.go`) calls `os.Exit` on
-Ctrl+C, ending `capsus` and skipping its deferred clean-up until P-002 changes that upstream.
-Don't rely on deferred clean-up while a tool runs, and test menu → tool → menu in one process.
-Accepted consequences, none fixable in Capsus without steering the tools:
+hidden password prompt (`readTerminalPassword` in `Cryptare/pkg/logic-cli.go`) calls `os.Exit`
+with 128 + the signal's number when SIGINT (Ctrl+C), SIGTERM, SIGQUIT or SIGHUP arrives, ending
+`capsus` and skipping its deferred clean-up. Cryptare's P-002 release (`v1.4.1`) kept it, and
+the doc comment on its `Main` names it as the one exception; it remains an upstream issue. Only
+`capsus cryptare <command>` reaches it, when a command prompts for a password at a terminal; the
+menu opens Cryptare's TUI, which never does. Don't rely on deferred clean-up while a tool runs,
+and test menu → tool → menu in one process. Accepted consequences, none fixable in Capsus
+without steering the tools:
 
 - Bubble Tea's `init()` queries the terminal's background colour once per `capsus` process when
   stdout is a terminal, Salus commands included (standalone Salus has no Bubble Tea). A terminal
@@ -99,8 +103,9 @@ Accepted consequences, none fixable in Capsus without steering the tools:
   that tool, and the menu comes back. At the menu itself, SIGINT exits 1 ("program was
   interrupted") and SIGTERM exits 0, leaving the last menu frame on screen.
 - Cryptare's TUI can deadlock in Bubble Tea's shutdown when a SIGINT or SIGTERM signal arrives
-  (its handler and Bubble Tea's both subscribe); standalone Cryptare has the same bug. The fix
-  belongs upstream (`tea.WithoutSignalHandler()` in Cryptare's TUI program).
+  (its handler and Bubble Tea's both subscribe); standalone Cryptare has the same bug. Its P-002
+  release kept it; the fix remains upstream (`tea.WithoutSignalHandler()` in Cryptare's TUI
+  program).
 - After a tool's Bubble Tea program is killed (a signal or a cancelled context), Bubble Tea
   v1.3.10 can leave its input reader running, and it may swallow one key at the menu. Keys typed
   while the menu hands over to a tool can be lost the same way.

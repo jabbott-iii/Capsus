@@ -14,8 +14,9 @@ permissions:
 
 # Capsus is several Go modules: the launcher at the root and the imported tools
 # in Munus/, Cryptare/ and Salus/ (git subtrees with their own go.mod; see
-# intel/maint.md). `go ... ./...` never enters a nested module, so the test job
-# runs once per module. `make check` runs the same checks locally.
+# .claude/rules/build-and-ci.md, Several modules). `go ... ./...` never enters
+# a nested module, so the test job runs once per module. `make check` runs the
+# same checks locally.
 jobs:
   repository:
     name: Repository checks
@@ -27,13 +28,14 @@ jobs:
         with:
           persist-credentials: false
 
-      # Databases and key exports must never be committed (intel/cybersec.md).
+      # Databases and key exports must never be committed (AGENTS.md, Security).
       # Runs first: it needs no Go module, so it also guards the repository
-      # before the import.
+      # when a module's go.mod is missing.
       - name: Refuse committed databases and key material
         run: make keys-check
 
-      # Fails with a pointer to intel/plan.md until every module is present.
+      # Fails if a module's go.mod is missing: since the Phase 1 imports, that
+      # is a real failure, such as a broken subtree pull.
       - name: Check module layout
         run: make layout
 
@@ -76,7 +78,7 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           # Latest Go 1.26 patch release (security fixes); each go.mod keeps
-          # its minimum version (intel/maint.md §5).
+          # its minimum version (.claude/rules/build-and-ci.md, Toolchain).
           go-version: "1.26.x"
           check-latest: true
           cache: true

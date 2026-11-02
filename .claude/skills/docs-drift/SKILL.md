@@ -24,7 +24,7 @@ For each finding, cite the doc location and the repository location.
 Something described as available that doesn't exist is **wrong**; something that exists but is
 still marked planned needs P-042's check against a built binary before it moves to the features.
 
-**CLI (readme)**: once `make build` works, run `bin/capsus --help`, `bin/capsus list` and
+**CLI (readme)**: run `make build`, then `bin/capsus --help`, `bin/capsus list` and
 `bin/capsus --version`, with `MUNUS_DB_PATH`, `CRYPTARE_DB_PATH` and `SALUS_DB_PATH` pointing
 into a temporary folder, and compare them with the README and the CLI contract in `AGENTS.md`
 (D-5). If it can't build, say so and compare with the code instead.
@@ -38,18 +38,19 @@ govulncheck and actionlint versions in the `Makefile`, the workflows and the doc
 still holds GitHub's placeholder text instead of a reporting process (**missing**). Propose
 changes; never edit the table without the maintainer's confirmation.
 
-**Configuration (readme)**: the data variables in the README against the tools' code once they
-are imported (`Munus/pkg/database_path.go`, `Cryptare/pkg/database_path.go`,
-`Salus/pkg/database-path.go`).
+**Configuration (readme)**: the data variables in the README against the tools' code
+(`Munus/pkg/database_path.go`, `Cryptare/pkg/database_path.go`, `Salus/pkg/database-path.go`).
 
 **References (references)**: every path a doc or comment names exists, for example
-`git grep -nE 'intel/|AGENTS\.md|CLAUDE\.md|\.claude/'`. References to the removed `intel/`
-documents are known debt (`AGENTS.md`, "Known documentation debt"): report each with where its
-content lives now. IDs: `D-n`, `P-0nn`, `R-n` and `Q-n` in `AGENTS.md`; `SEC-00n` in
-`.claude/rules/build-and-ci.md`. Sections of `intel/maint.md`: §3 (upstream first, sync) →
+`git grep -nE 'intel/|AGENTS\.md|CLAUDE\.md|\.claude/'`. A pointer to a removed `intel/`
+document is drift (mentions of the retired documents as history are not): report each with
+where its content lives now. IDs: `D-n`, `P-0nn`, `R-n` and `Q-n` in `AGENTS.md`; `SEC-00n` in
+`.claude/rules/build-and-ci.md`. Sections of `intel/maint.md`: §2 (layout and module
+boundaries) → `.claude/rules/build-and-ci.md` "Several modules"; §3 (upstream first, sync) →
 `AGENTS.md` "Tool folders" and `/tool-sync`; §4 (embedding contract, adding a tool) →
 `.claude/rules/launcher.md` "Dispatch" and `/add-tool`; §5 (build) and §7 (dependencies) → the
-"Toolchain" and "Dependencies" sections of `.claude/rules/build-and-ci.md`. Whole documents:
+"Toolchain" and "Dependencies" sections of `.claude/rules/build-and-ci.md` (the static Linux
+build is P-030 in its "Release build pieces"). Whole documents:
 `intel/plan.md` and `intel/map.md` → `AGENTS.md`; `intel/cybersec.md` → `AGENTS.md` "Security"
 and the open items in `.claude/rules/build-and-ci.md`; `intel/notes.md` → `AGENTS.md` (Q-n) and
 `.claude/rules/build-and-ci.md`; `intel/golang.md` → `.claude/rules/go.md`; `intel/history.md`

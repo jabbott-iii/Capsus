@@ -3,11 +3,12 @@ SHELL := /bin/bash
 # Capsus contributor tasks. `make check` runs what CI runs (ci.yml) in every Go
 # module of the repository: the launcher at the root and the imported tools in
 # Munus/, Cryptare/ and Salus/ (git subtrees with their own go.mod; see
-# intel/maint.md). `make check-all` adds the security scans (security.yml) and
-# the workflow linter. Run `make` or `make help` for the list. The recipes need
-# bash, git, Go 1.26 and a C compiler (go-sqlite3 needs CGO); docker-static
-# needs Docker. Until intel/plan.md Phases 1-2 land, every target that needs
-# the modules stops at the `layout` check.
+# .claude/rules/build-and-ci.md, Several modules). `make check-all` adds the
+# security scans (security.yml) and the workflow linter. Run `make` or
+# `make help` for the list. The recipes need bash, git, Go 1.26 and a C
+# compiler (go-sqlite3 needs CGO); docker-static needs Docker. Every other
+# target that needs the modules first runs the `layout` check, which fails when
+# a module's go.mod is missing.
 #
 # Release tagging:
 #   make release VERSION=v0.1.0
@@ -46,15 +47,16 @@ GOVULNCHECK ?= $(GO) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION
 ACTIONLINT ?= $(GO) run github.com/rhysd/actionlint/cmd/actionlint@$(ACTIONLINT_VERSION)
 
 # The launcher's own Go files: everything outside the tool folders. `make fmt`
-# rewrites only these; tool code changes upstream (intel/maint.md §3).
+# rewrites only these; tool code changes upstream (AGENTS.md, Tool folders).
 ROOT_GO_FILES = $(shell find . \( $(foreach t,$(TOOLS),-path ./$(t) -o) -path ./.git \) -prune -o -type f -name '*.go' -print)
 
 # Targets of the tools' own Makefiles that `make tool` may run; not every tool
 # has every target (`make tool TOOL=<Tool> TARGET=help` lists them). Release
 # targets (tag, push-tag, release) are left out on purpose: inside this
-# repository they would tag and push Capsus, not the tool (intel/cybersec.md
-# SEC-001). So are targets that write into the tool folder's tracked content
-# (fmt, licenses, and fuzz, which saves failing inputs under testdata/).
+# repository they would tag and push Capsus, not the tool
+# (.claude/rules/build-and-ci.md SEC-001). So are targets that write into the
+# tool folder's tracked content (fmt, licenses, and fuzz, which saves failing
+# inputs under testdata/).
 TOOL_TARGETS := help build test race test-race cover vet fmt-check lint tidy-check keys-check golden smoke check sec vuln security
 
 # each_module runs $(1) in every module directory, stopping at the first
@@ -65,8 +67,8 @@ endef
 
 .DEFAULT_GOAL := help
 
-.PHONY: help layout build smoke docker-static clean test race cover vet fmt fmt-check lint \
-	tidy-check keys-check deps-drift check sec vuln actionlint security check-all tool \
+.PHONY: help layout build smoke docker-static licenses clean test race cover vet fmt fmt-check \
+	lint tidy-check keys-check deps-drift check sec vuln actionlint security check-all tool \
 	check-version tag push-tag release
 
 ##@ General
@@ -78,13 +80,13 @@ help: ## Show this help
 	@printf '\nModules: %s\nVariables: BUILD_VERSION=%s TOOL=%s TARGET=%s\n' \
 		'$(MODULES)' '$(BUILD_VERSION)' '$(TOOL)' '$(TARGET)'
 
-layout: ## Fail unless the root module and every tool module are present (intel/plan.md)
+layout: ## Fail unless the root module and every tool module are present (AGENTS.md, Commands)
 	@missing=0; \
 	for m in $(MODULES); do \
 		if [[ ! -f "$$m/go.mod" ]]; then echo "missing: $$m/go.mod"; missing=1; fi; \
 	done; \
 	if (( missing )); then \
-		echo "The tools are not fully imported yet; see intel/plan.md (Phase 1: git subtree add, Phase 2: root go.mod)."; \
+		echo "A module's go.mod is missing: since the Phase 1 imports, that is a real failure, such as a deleted file or a broken subtree pull (AGENTS.md, Commands). Only the maintainer imports or syncs a tool folder."; \
 		exit 1; \
 	fi
 
@@ -96,9 +98,14 @@ build: layout ## Build bin/capsus with CGO, stamped with BUILD_VERSION
 smoke: build ## Smoke-test bin/capsus as CI does (scripts/smoke.sh), with databases in a temporary folder
 	bash scripts/smoke.sh "$(BINARY)" "$(BUILD_VERSION)"
 
-docker-static: ## Build the static Linux release binary as cd.yml does, into bin/static/ (needs the Dockerfile, plan P-030)
-	@if [[ ! -f Dockerfile ]]; then echo "No Dockerfile yet; see intel/plan.md P-030."; exit 1; fi
+docker-static: ## Build the static Linux release binary as cd.yml does, into bin/static/ (needs Docker; .claude/rules/build-and-ci.md P-030)
 	docker build --target static --build-arg VERSION="$(BUILD_VERSION)" --output "type=local,dest=$(BIN_DIR)/static" .
+
+# Rerun after a dependency change or a tool sync: `go test ./tools/licenses`
+# (make test, make race, CI) fails while THIRD_PARTY_LICENSES or the NOTICE.txt
+# module list is out of date.
+licenses: layout ## Regenerate THIRD_PARTY_LICENSES and check the NOTICE.txt module list (P-040)
+	$(GO) run ./tools/licenses
 
 clean: ## Remove bin/ and every module's coverage.out
 	rm -rf $(BIN_DIR)
@@ -138,7 +145,7 @@ lint: layout ## Run golangci-lint (CI's version) in every module, with each modu
 tidy-check: layout ## Fail if go mod tidy would change any go.mod or go.sum (changes nothing itself)
 	@$(call each_module,$(GO) mod tidy -diff)
 
-keys-check: ## Fail if a database or key export is tracked by git anywhere (intel/cybersec.md)
+keys-check: ## Fail if a database or key export is tracked by git anywhere (AGENTS.md, Security)
 	@if git ls-files | grep -iE '\.(db|db-journal|db-wal|db-shm|ckey)$$'; then \
 		echo "Databases or key exports are tracked. Remove them with 'git rm --cached'."; \
 		exit 1; \
@@ -159,7 +166,7 @@ deps-drift: layout ## Report modules the capsus build uses at a different versio
 		done <<<"$$wanted"; \
 	done; \
 	if (( drift )); then \
-		echo "Those tools' tests ran other versions than capsus ships (intel/plan.md R-1)."; \
+		echo "Those tools' tests ran other versions than capsus ships (AGENTS.md R-1)."; \
 	else \
 		echo "No drift: every tool's go.mod matches the capsus build."; \
 	fi
@@ -177,7 +184,7 @@ sec: layout ## Run gosec (security.yml's version) in every module; fails after s
 	done; \
 	if [[ -n "$$failed" ]]; then echo "gosec reported findings in:$$failed"; exit 1; fi
 
-vuln: layout ## Run govulncheck on the root module: the build list and call graph that ship (intel/cybersec.md SEC-002)
+vuln: layout ## Run govulncheck on the root module: the build list and call graph that ship (.claude/rules/build-and-ci.md SEC-002)
 	$(GOVULNCHECK) ./...
 
 actionlint: ## Lint the GitHub workflows (uses shellcheck too, when it is installed)
@@ -194,7 +201,7 @@ tool: layout ## Run one of a tool's own Makefile targets: make tool TOOL=Cryptar
 	@if [[ " $(TOOLS) " != *" $(TOOL) "* ]]; then echo "TOOL must be one of: $(TOOLS)"; exit 1; fi
 	@if [[ " $(TOOL_TARGETS) " != *" $(TARGET) "* ]]; then \
 		echo "TARGET must be one of: $(TOOL_TARGETS)"; \
-		echo "(Release targets and targets that rewrite files are not allowed here; see intel/cybersec.md SEC-001.)"; \
+		echo "(Release targets and targets that rewrite files are not allowed here; see .claude/rules/build-and-ci.md SEC-001.)"; \
 		exit 1; \
 	fi
 	$(MAKE) -C "$(TOOL)" $(TARGET)

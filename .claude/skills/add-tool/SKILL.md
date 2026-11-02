@@ -62,6 +62,8 @@ Use the module path from step 1 everywhere a module path appears.
   the line count and patterns in `TestListOfBundledToolsMatchesSmokeTest`, the fakes in
   `main_test.go` and `TestBundledToolsRunInOneProcess`.
 - `Makefile`: add it to `TOOLS`.
+- `Dockerfile`: a `COPY <ToolName>/go.mod <ToolName>/` line next to the others, before
+  `go mod download` (the root `replace` needs it to load the build list).
 - `ci.yml`: a row in the `module` matrix.
 - `security.yml`: a row in the gosec matrix and the folder in the CodeQL build loop (SEC-003).
 - `docker.yml` and `cd.yml`: its data variable in the container smoke steps.
@@ -75,7 +77,10 @@ Use the module path from step 1 everywhere a module path appears.
   `.claude/rules/tool-folders.md`, an `Edit(/<ToolName>/**)` deny rule in
   `.claude/settings.json`, and the tool-folder lists in the `pre-pr` and `tool-sync` skills and
   the `change-reviewer` agent.
-- `NOTICE.txt` and `THIRD_PARTY_LICENSES` for its modules (P-040, P-041).
+- `NOTICE.txt` lines for the tool's module and any new modules it brings, under "Bundled tools"
+  and the dependency headings, then `make licenses` to regenerate `THIRD_PARTY_LICENSES`
+  (P-040, P-041). If the tool links a C library that the existing sections don't cover, add it
+  to `tools/licenses`.
 
 ## 5. Verify and report
 

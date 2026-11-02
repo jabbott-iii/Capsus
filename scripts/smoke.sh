@@ -14,9 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Smoke test for a built capsus binary: the Capsus CLI contract (intel/plan.md
-# D-5) and one non-interactive round trip through each bundled tool, with every
-# database in a temporary folder. Used by `make smoke`, ci.yml and cd.yml.
+# Smoke test for a built capsus binary: the Capsus CLI contract (AGENTS.md D-5)
+# and one non-interactive round trip through each bundled tool, with every
+# database in a temporary folder. Used by `make smoke`, ci.yml, cd.yml and
+# docker.yml.
 #
 # Usage: scripts/smoke.sh <capsus-binary> [expected-version]
 

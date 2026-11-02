@@ -7,8 +7,9 @@ paths:
 
 # Tool folders: `Munus/`, `Cryptare/`, `Salus/`
 
-These folders are `git subtree` copies of the tools' own repositories (planned, P-010). Upstream
-is the source of truth (D-7).
+These folders are `git subtree` copies of the tools' own repositories (P-010), each imported at
+the release tag that `internal/launcher/registry.go` records (P-011). Upstream is the source of
+truth (D-7).
 
 - Read only. Never edit, format, add or delete a tracked file here, not even to fix a bug, a
   lint finding or a failing test; `.claude/settings.json` denies edits here. Make the change in
@@ -27,7 +28,9 @@ is the source of truth (D-7).
   its files; older tags carry a retired `AGENTS.md` and `intel/`. They describe the standalone
   repository: trust them for how the tool behaves (commands, flags, exit codes, data locations,
   invariants), and ignore their steps that edit, commit or release. Their skills are not for use
-  inside Capsus.
+  inside Capsus. Cryptare's also include `.claude/agents/` (one named `change-reviewer`) and
+  `.claude/hooks/`, and every folder has a `.claude/settings.json`; review Capsus changes with
+  Capsus' own `change-reviewer`.
 - IDs in a tool's files (`SEC-…`, `P-…`, `Q-…`) belong to that tool's retired documents, not to
   Capsus' items of the same name. Look them up in the tool's own repository: commits its
   instructions cite (for example in `git show <commit>:intel/cybersec.md`) are not in Capsus'

@@ -3,17 +3,18 @@
 CLI toolbox containing all CLI tools I have made in one binary.
 
 Capsus bundles three terminal tools, Munus, Cryptare and Salus, into a single `capsus` command for
-people who use them together. Running `capsus` will open a menu that lists the tools with a short
+people who use them together. Running `capsus` opens a menu that lists the tools with a short
 description; selecting a tool launches that tool's own terminal UI (TUI), and a tool without a TUI
 says so.
 
-> **Status: in preparation.** The launcher code is written, but no tool release exports the
-> `pkg.Main` entry point it needs yet and the tools are not imported, so the `capsus` binary cannot
-> be built.
-> Everything under "Planned" below describes [Plan 1](intel/plan.md), which is awaiting review. The
-> build, test and release tooling in this repository already targets that layout.
+> **Status: pre-release.** The tools are imported at their release tags (`capsus --version` lists
+> them), and `make build` builds the `capsus` binary from source. There is no release yet, so
+> there are no release archives. Not every check passes yet: `make check-all` stops at gosec
+> findings in Salus' code, which are to be resolved in Salus, and CI has yet to pass on all three
+> platforms. The remaining work is in [Plan 1](AGENTS.md#plan-1-work-order), which is awaiting
+> review.
 
-## Bundled tools (planned)
+## Bundled tools
 
 | Tool | What it does | TUI | Source |
 |---|---|---|---|
@@ -23,10 +24,10 @@ says so.
 
 Each tool's own README is the reference for its commands and options.
 
-## Planned features
+## Features
 
-Not available yet: the launcher is written but cannot be built until the tools are imported; see
-[intel/plan.md](intel/plan.md), decisions D-5 and D-6.
+The command-line and menu contract is in [AGENTS.md](AGENTS.md#architecture-plan-1-decisions),
+decisions D-5 and D-6.
 
 - `capsus`: menu TUI listing each tool, its description and whether it has a TUI. Enter launches the
   tool's TUI and returns to the menu when it exits; for Salus the menu says it has no TUI. Outside a
@@ -47,11 +48,11 @@ For building from source and running the checks:
 - Go 1.26 (CI uses the latest 1.26 patch release)
 - A C compiler: every tool stores data with `mattn/go-sqlite3`, which needs CGO
 - GNU Make, bash and git
-- Docker, only for `make docker-static` (needs the planned Dockerfile)
+- Docker with BuildKit, only for `make docker-static` (the static Linux build)
 
 ## Installation
 
-There is no release yet. Once the import lands, build from source:
+There is no release yet. Build from source:
 
 ```sh
 git clone https://github.com/jabbott-iii/Capsus.git
@@ -59,14 +60,14 @@ cd Capsus
 make build    # writes bin/capsus
 ```
 
-Until then, `make build` stops with a message pointing to [intel/plan.md](intel/plan.md). Release
-archives will be published on the GitHub Releases page by the CD workflow; `go install …@latest` is
-not supported because the root module uses `replace` directives for the tool folders.
+Release archives will be published on the GitHub Releases page by the CD workflow;
+`go install …@latest` is not supported because the root module uses `replace` directives for the
+tool folders.
 
 ## Configuration
 
-Planned: the bundled tools keep their own configuration, so Capsus and the standalone binaries
-share data. The main settings are the database locations:
+The bundled tools keep their own configuration, so Capsus and the standalone binaries share data.
+The main settings are the database locations:
 
 | Variable | Tool | Purpose |
 |---|---|---|
@@ -76,6 +77,16 @@ share data. The main settings are the database locations:
 
 When unset, each tool uses its default location in the per-user data directory; see each tool's
 README for details and further options.
+
+## Static Linux build
+
+The `Dockerfile` builds the fully static Linux binary (linked with musl) that the release
+workflow puts in the Linux archives, for the architecture of the machine that runs Docker.
+Capsus publishes no container image.
+
+```sh
+make docker-static    # writes bin/static/capsus
+```
 
 ## Testing and quality checks
 
@@ -88,6 +99,7 @@ make check-all    # check plus gosec, govulncheck and actionlint
 make test         # tests only
 make smoke        # build bin/capsus and run scripts/smoke.sh against it
 make deps-drift   # report dependencies the capsus build uses at other versions than a tool's go.mod
+make licenses     # regenerate THIRD_PARTY_LICENSES after a dependency change or a tool sync
 make tool TOOL=Cryptare TARGET=golden   # run one of a tool's own Makefile targets (release targets refused)
 ```
 
@@ -95,18 +107,26 @@ make tool TOOL=Cryptare TARGET=golden   # run one of a tool's own Makefile targe
 
 ```
 Capsus/
-├── Munus/ Cryptare/ Salus/  # planned: the tools, imported as git subtrees (own go.mod each)
-├── main.go, internal/       # the capsus launcher and menu TUI (not buildable yet; see Status)
+├── Munus/ Cryptare/ Salus/  # the tools, imported as git subtrees (own go.mod each)
+├── main.go, internal/       # the capsus launcher and menu TUI
 ├── go.mod, go.sum           # root module: requires the tools, replaced by their folders
+├── .gitattributes           # go.mod and go.sum stay LF on every checkout (go mod tidy -diff)
 ├── scripts/smoke.sh         # smoke test for a built capsus binary
 ├── Makefile                 # checks, build, smoke test, security scans, release tagging
 ├── .github/                 # CI, security, Docker and CD workflows; Dependabot; PR template
-└── intel/                   # plan, architecture, map, security register, notes, history
+├── Dockerfile               # static Linux release build (musl), with a .dockerignore
+├── tools/licenses/          # THIRD_PARTY_LICENSES generator and check (make licenses)
+├── THIRD_PARTY_LICENSES     # license texts for the release binaries (generated)
+├── NOTICE.txt               # attribution summary: the bundled tools and third-party modules
+├── AGENTS.md, CLAUDE.md     # agent instructions: purpose, plan, decisions, ground rules
+└── .claude/                 # Claude Code rules, skills, agent, settings and hook
 ```
 
-See [intel/map.md](intel/map.md) for the full map.
+See "Layout" in [AGENTS.md](AGENTS.md#layout) for more detail.
 
 ## Contributing and license
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Changes to a tool's code go to that tool's repository
-first. Capsus is licensed under the Apache License 2.0 ([LICENSE](LICENSE)).
+first. Capsus is licensed under the Apache License 2.0 ([LICENSE](LICENSE)). The binaries also
+contain third-party software under its own licenses: [NOTICE.txt](NOTICE.txt) lists it, and
+[THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES) reproduces the license texts.

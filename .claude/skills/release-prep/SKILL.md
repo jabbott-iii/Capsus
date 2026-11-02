@@ -28,11 +28,17 @@ uncommitted.
 - On `main`, up to date with `origin/main`, with a clean working tree. Otherwise report it and
   stop.
 - Plan 1 Phases 1 to 4 are done: the tools imported at release tags, the launcher and its tests,
-  the `Dockerfile` `static` stage, a current `THIRD_PARTY_LICENSES` (`cd.yml` packaging fails
-  without it), the combined `NOTICE.txt`, and README features verified against a built binary
-  (P-042).
+  the `Dockerfile` `static` stage, `THIRD_PARTY_LICENSES` and the combined `NOTICE.txt`
+  (P-040, P-041), and README features verified against a built binary (P-042).
+- `go run ./tools/licenses -check` passes: `THIRD_PARTY_LICENSES` matches the modules the
+  release binaries compile in and `NOTICE.txt` lists them. `cd.yml` packages the committed file
+  without checking it.
 - The bundled versions in the registry match the imported tags (P-011), and `make deps-drift`
   has been reviewed.
+- The `Dockerfile`'s builder carries the latest Go 1.26 patch release (D-9): compare
+  `GOLANG_VERSION` in `docker buildx imagetools inspect <image>@<digest> --format '{{json .Image}}'`
+  with <https://go.dev/dl/>. If it is older, ask the maintainer to merge Dependabot's docker update
+  first.
 - Ask the maintainer to confirm that CI, Security and Docker are green on that commit; you can't
   see GitHub runs unless `gh run list` works in this session.
 - SEC-001: ask whether the GitHub tag ruleset for `v*` tags exists, and report the answer.

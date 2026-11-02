@@ -17,7 +17,7 @@ permissions:
 # The tools in Munus/, Cryptare/ and Salus/ are nested Go modules. Scanners
 # started at the repository root see only the root module (gosec skips nested
 # modules silently), so CodeQL builds every module and gosec runs in each one
-# (intel/cybersec.md SEC-003).
+# (.claude/rules/build-and-ci.md SEC-003).
 jobs:
   codeql:
     name: CodeQL (Go)
@@ -120,8 +120,8 @@ jobs:
 
   # The root module's build list and call graph are what the release binary
   # contains: the versions minimal version selection picks across the three
-  # tools, and the tool code capsus reaches (intel/cybersec.md SEC-002). Each
-  # tool also runs govulncheck on its own go.mod upstream.
+  # tools, and the tool code capsus reaches (.claude/rules/build-and-ci.md
+  # SEC-002). Each tool also runs govulncheck on its own go.mod upstream.
   govulncheck:
     name: govulncheck (capsus build)
     runs-on: ubuntu-latest

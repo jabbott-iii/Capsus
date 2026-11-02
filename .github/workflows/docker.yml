@@ -14,8 +14,9 @@ permissions:
 
 jobs:
   # The Linux release binaries (cd.yml) come from the Dockerfile's "static"
-  # stage (intel/plan.md P-030); build them here too so a pull request cannot
-  # break the release. Capsus publishes no container image (intel/plan.md D-8).
+  # stage (.claude/rules/build-and-ci.md P-030); build them here too so a pull
+  # request cannot break the release. Capsus publishes no container image
+  # (AGENTS.md D-8).
   static-linux-binary:
     name: Static Linux binary (${{ matrix.arch }})
     strategy:
@@ -36,9 +37,9 @@ jobs:
 
       # Fully static musl binary (no program interpreter) with an 8 MiB thread
       # stack request, because the tools' SQLite calls run on musl threads
-      # (128 KiB by default; intel/maint.md §5). It must pass the full smoke
-      # test on the runner and run on an older glibc distribution and on
-      # musl-based Alpine.
+      # (128 KiB by default; .claude/rules/build-and-ci.md P-030). It must
+      # pass the full smoke test on the runner and run on an older glibc
+      # distribution and on musl-based Alpine.
       - name: Smoke test static binary
         run: |
           file out/capsus | grep "statically linked" > /dev/null

@@ -29,20 +29,28 @@ All three use Go 1.26, keep their code in package `pkg` (`pkg/`), use Cobra v1.1
 with `mattn/go-sqlite3` (CGO), and are Apache-2.0. Munus and Cryptare use Bubble Tea v1.3.10
 and Lip Gloss v1.1.0.
 
-## Current state (checked 2026-10-19)
+## Current state (checked 2026-11-01)
 
-- Preparation: the launcher (`main.go`, `internal/launcher`, the root `go.mod` and `go.sum`) is
-  written against the planned `pkg.Main` (D-4), but no tool folder exists yet, so nothing
-  builds: every `make` target that needs a module stops at `make layout` until Phase 1 imports
-  the tools at releases that export `pkg.Main`. The README, `Makefile`, `scripts/smoke.sh` and
-  the workflows already target the planned layout.
-- No tool exports the `pkg.Main` entry point the launcher needs (D-4). Today Munus wires its
-  database and `NewRootCmd` in `main.go`, Cryptare has `pkg.Run(version)`, which reads
-  `os.Args`, and Salus keeps `run`/`runWith` in package `main`.
-- Latest tags: Munus `v1.0.0`, Cryptare `v1.4.0`, Salus `v1.2.0`. Each `main` has commits after
-  its tag (Cryptare's include the Go 1.26.9 fix). The tags still carry the tools' retired
-  `AGENTS.md` and `intel/`; only releases made after 2026-10-13 carry their `CLAUDE.md` and
-  `.claude/`.
+- Phases 0 and 1 are done, apart from the optional P-004. Munus `v1.0.1`, Cryptare `v1.4.1` and
+  Salus `v1.2.1` export `pkg.Main` (D-4). On 2026-11-01 the maintainer imported them with
+  `git subtree add --squash`, directly on `main` (merges `f188212`, `cc4c579`, `4c72f58`), and
+  the registry's bundled versions are those tags (P-011). Every module folder now has its
+  `go.mod`, so the module targets no longer stop at `make layout`.
+- Phase 2's launcher is written; its validation is open:
+  - gosec reports findings in `Salus/pkg` that predate the import and are to be fixed or
+    annotated upstream in Salus, so `make sec` fails and `make check-all` stops there. The
+    Security workflow runs gosec with `-no-fail`.
+  - CI on `4c72f58` failed in the four Windows test jobs at "Verify dependencies"
+    (`go mod tidy -diff`): Windows runners check out `go.sum` with CRLF line endings. The root
+    `.gitattributes` keeps `go.mod` and `go.sum` LF on every checkout; no GitHub run has
+    confirmed the fix yet.
+- Phase 3's `Dockerfile` (`static` stage) and `.dockerignore` are written (P-030); no Docker
+  workflow run has confirmed them yet (P-031).
+- Phase 4's `tools/licenses/` generator, `make licenses`, `THIRD_PARTY_LICENSES` and the
+  combined `NOTICE.txt` are written (P-040, P-041); no CD run has packaged them yet. P-042 is
+  still open, and Phase 5 too: there is no Capsus release or tag.
+- The imported releases carry each tool's `CLAUDE.md` and `.claude/`; none carries the retired
+  `AGENTS.md` or `intel/`.
 - This file and `.claude/` replace the old `AGENTS.md` and `intel/` documents (last version in
   commit `7cb3629`, for example `git show 7cb3629:intel/plan.md`). Their IDs (`D-n`, `P-0nn`,
   `R-n`, `Q-n`, `SEC-00n`) are kept here and in `.claude/rules/` so existing references still
@@ -87,11 +95,16 @@ Run from the repository root. They need GNU Make, bash, git, Go 1.26 and a C com
 | `make test`, `race`, `cover`, `vet`, `lint`, `tidy-check` | One check, looped over every module |
 | `make fmt` | `gofmt -s -w` on the launcher's files only; tool folders are never rewritten |
 | `make deps-drift` | Modules the capsus build uses at other versions than a tool's `go.mod` (R-1) |
+| `make licenses` | Regenerate `THIRD_PARTY_LICENSES` and check the `NOTICE.txt` module list (P-040); `go test ./tools/licenses` fails while either is stale |
 | `make tool TOOL=<Tool> TARGET=<target>` | One of a tool's own Makefile targets, from an allow-list without release or file-rewriting targets |
 
 - `go … ./...` at the root never enters a nested module: use the make targets, which loop over
   `MODULES`, or run `go` inside one module's folder.
-- Until Phases 1 and 2 land, module targets stop at `make layout`. That is expected, not a bug.
+- `make layout` fails only when a module's `go.mod` is missing; since Phase 1 that is a real
+  failure, such as a broken subtree pull. `make check-all` stops at `make sec` while gosec
+  reports the known findings in `Salus/pkg`, so run `make vuln actionlint` separately. Report
+  tool findings upstream and never annotate tool code here (R-5); a gosec finding in the
+  launcher is a real failure.
 - When you run a binary by hand, point `MUNUS_DB_PATH`, `CRYPTARE_DB_PATH` and `SALUS_DB_PATH` at
   files in a temporary folder. Build into `bin/`; `.gitignore` doesn't cover a root `capsus`.
 - `make release`, `make tag` and `make push-tag` are the maintainer's. Never run a tool's `tag`,
@@ -105,9 +118,11 @@ Capsus/
 ├── main.go                        # P-021: version, Cobra root command `capsus`
 ├── internal/launcher/             # P-022: tool registry and Bubble Tea menu
 ├── go.mod, go.sum                 # P-020: require and replace the three tools
-├── Munus/ Cryptare/ Salus/        # planned (P-010): git subtrees, one Go module each
-├── Dockerfile, .dockerignore      # planned (P-030): `static` stage for the Linux binaries
-├── tools/licenses/                # planned (P-040): THIRD_PARTY_LICENSES generator
+├── .gitattributes                 # LF line endings for go.mod and go.sum on every checkout
+├── Munus/ Cryptare/ Salus/        # P-010: git subtrees, one Go module each
+├── Dockerfile, .dockerignore      # P-030: `static` stage for the Linux release binaries
+├── tools/licenses/                # P-040: THIRD_PARTY_LICENSES generator (`make licenses`)
+├── THIRD_PARTY_LICENSES           # P-040: generated license texts for the release archives
 ├── scripts/smoke.sh               # smoke test of a built capsus (Makefile, ci.yml, cd.yml, docker.yml)
 ├── Makefile                       # per-module checks, build, smoke, scans, `make tool`, release tags
 ├── .github/                       # ci, security, docker and cd workflows; dependabot.yml; PR template
@@ -177,11 +192,12 @@ Details: `.claude/rules/launcher.md`.
 - Never change tracked files under `Munus/`, `Cryptare/` or `Salus/`. Change the tool's own
   repository, release it, and the maintainer syncs it; a local edit conflicts with, or is lost at,
   the next `git subtree pull` (R-5). Report problems in tool code so they can be fixed upstream.
-- Each folder brings the instructions of the release it was imported at: releases made after
-  2026-10-13, such as the Phase 0 releases Plan 1 imports, carry the tool's `CLAUDE.md`,
-  `.claude/` rules and skills; older tags carry its retired `AGENTS.md` and `intel/`. They
-  describe the standalone repository: use them to understand a tool, but inside Capsus this file
-  wins for anything that writes files or runs commands. Nested `.github/` folders are inert.
+- Each folder brings the instructions of the release it was imported at (the tag
+  `internal/launcher/registry.go` records). The current imports carry the tool's `CLAUDE.md` and
+  `.claude/` (rules, skills and settings; Cryptare also agents and hooks); most tags made before
+  2026-10-13 carry a retired `AGENTS.md` and `intel/` instead. They describe the standalone
+  repository: use them to understand a tool, but inside Capsus this file wins for anything that
+  writes files or runs commands. Nested `.github/` folders are inert.
 - Run a tool's own checks with `make tool TOOL=<Tool> TARGET=<target>`.
 - Every tool's package is named `pkg`: import with aliases, such as
   `munus "github.com/jabbott-iii/Munus/pkg"`. Capsus uses only `pkg.Main` and the registry
@@ -200,7 +216,7 @@ Details: `.claude/rules/launcher.md`.
   (`make keys-check` and CI's "Repository checks" refuse them).
 - Scans cover what ships: gosec and CodeQL in every module, govulncheck on the root module's
   build list. Pipeline hardening: actions pinned by commit SHA, downloads by SHA-256, the
-  planned `Dockerfile`'s images by digest, least-privilege permissions, provenance for every
+  `Dockerfile`'s builder image by digest, least-privilege permissions, provenance for every
   archive, release builds from clean caches.
 - Dependabot pull requests against tool folders are closed and fixed upstream; a root-level bump
   is a stopgap only for a vulnerability govulncheck reports as reachable (Q-8).
@@ -245,7 +261,7 @@ Read the matching rule before changing an area (Claude Code loads it automatical
 | Go code, `go.mod`, `go.sum` | `.claude/rules/go.md` |
 | Root `*.go`, `internal/`, `scripts/smoke.sh` | `.claude/rules/launcher.md` |
 | `Munus/`, `Cryptare/`, `Salus/` | `.claude/rules/tool-folders.md` |
-| `Makefile`, `.github/`, `scripts/`, `Dockerfile`, `.dockerignore`, `.gitignore`, `tools/`, `go.mod`, `go.sum`, `NOTICE.txt`, `THIRD_PARTY_LICENSES` | `.claude/rules/build-and-ci.md` |
+| `Makefile`, `.github/`, `scripts/`, `Dockerfile`, `.dockerignore`, `.gitignore`, `.gitattributes`, `tools/`, `go.mod`, `go.sum`, `NOTICE.txt`, `THIRD_PARTY_LICENSES` | `.claude/rules/build-and-ci.md` |
 | Markdown documents | `.claude/rules/docs.md` |
 
 Repeatable procedures are Claude Code skills that other agents can follow as checklists:
@@ -253,67 +269,74 @@ Repeatable procedures are Claude Code skills that other agents can follow as che
 
 ## Plan 1 work order
 
-Every item is open (2026-10-19); Phase 2's code and tests are written but unvalidated until
-Phase 1 lands. The maintainer runs every step that commits, tags or pushes.
+Phases 0 and 1 are done (2026-11-01), apart from the optional P-004. Phase 2's code and tests,
+Phase 3's `Dockerfile` and Phase 4's license files are written and wait for the validation
+below; every later item is open. The maintainer runs every step that commits, tags or pushes.
 
-- **Phase 0, upstream (in each tool's repository).** P-001 Munus, P-002 Cryptare and P-003 Salus
-  add `pkg.Main` with tests (version output, exit codes, arguments taken from the parameter
-  rather than `os.Args`) and release a minor version. Cryptare's `Run(version)` then calls
+- **Phase 0, upstream (done, in each tool's repository).** P-001 Munus `v1.0.1`, P-002 Cryptare
+  `v1.4.1` and P-003 Salus `v1.2.1` export `pkg.Main`, with tests (version output, exit codes,
+  arguments taken from the parameter rather than `os.Args`); they are patch releases, not the
+  minor releases planned. Cryptare's `Run(version)` calls
   `Main(context.Background(), version, os.Args[1:])` and keeps exit status 130 and its Ctrl+C
-  shutdown; its release includes the Go 1.26.9 fix and decides whether Ctrl+C at a password
-  prompt keeps calling `os.Exit` (R-4). Salus moves `run`/`runWith` into `pkg` behind `Main`,
-  keeping panic to exit 3, the database close and errors on stderr only. Munus confirms its
-  version line (Q-7). P-004 (optional) aligns shared dependency versions across the tools.
-- **Phase 1, import (maintainer; `/tool-sync` prepares it).** P-010 `git subtree add
-  --prefix=<Tool> https://github.com/jabbott-iii/<Tool>.git <tag> --squash` per tool, on a
-  branch, at the Phase 0 tags; P-011 record each tag as the bundled version; P-012
-  `make keys-check`.
-- **Phase 2, launcher.** P-020 root `go.mod` (D-3, D-9; Bubble Tea, Lip Gloss and Cobra at the
-  tools' versions); P-021 `main.go`; P-022 `internal/launcher`; P-023 tests; P-024 license
-  headers.
-- **Phase 3, build.** P-030 `Dockerfile` `static` stage and `.dockerignore`; P-031 `make check`
-  and the CI, Security and Docker workflows green.
-- **Phase 4, licensing and docs.** P-040 `THIRD_PARTY_LICENSES` generator and `make licenses`;
-  P-041 combined `NOTICE.txt`; P-042 README features verified against a built binary; P-043 the
-  layout above.
+  shutdown; its release includes the Go 1.26.9 fix and keeps both the `os.Exit` at its hidden
+  password prompt (`readTerminalPassword` in `Cryptare/pkg/logic-cli.go`) and its TUI
+  signal deadlock (no `tea.WithoutSignalHandler()`; R-4). Salus' `run`/`runWith` are in `pkg`
+  behind `Main`, keeping panic to exit 3, the database close and errors on stderr only; its
+  gosec findings remain. Munus prints `munus version <tag>` (Q-7). P-004 (optional, open)
+  aligns shared dependency versions across the tools; `make deps-drift` lists the differences.
+- **Phase 1, import (done; maintainer, `/tool-sync` prepares it).** P-010 `git subtree add
+  --prefix=<Tool> https://github.com/jabbott-iii/<Tool>.git <tag> --squash` per tool at the
+  Phase 0 tags, run directly on `main` rather than on a branch (merges `f188212`, `cc4c579`,
+  `4c72f58`); P-011 each tag recorded as the bundled version in `internal/launcher/registry.go`;
+  P-012 `make keys-check`.
+- **Phase 2, launcher (written; validation open).** P-020 root `go.mod` (D-3, D-9; Bubble Tea,
+  Lip Gloss and Cobra at the tools' versions); P-021 `main.go`; P-022 `internal/launcher`;
+  P-023 tests; P-024 license headers.
+- **Phase 3, build (written; validation open).** P-030 `Dockerfile` `static` stage and
+  `.dockerignore`; P-031 `make check` and the CI, Security and Docker workflows green.
+- **Phase 4, licensing and docs (P-040 and P-041 written).** P-040 `THIRD_PARTY_LICENSES`
+  generator and `make licenses`; P-041 combined `NOTICE.txt`, whose module list
+  `go test ./tools/licenses` checks; P-042 README features verified against a built binary (open: on
+  Linux a built binary shows them, so the README no longer labels them planned; on macOS and
+  Windows only CI's non-interactive smoke jobs cover them); P-043 the layout above.
 - **Phase 5, first release (maintainer).** P-050 `make release VERSION=v0.1.0`; then a green
   `cd.yml`, complete archives and `gh attestation verify <archive> --repo jabbott-iii/Capsus`.
 
 Validation: Phase 0 is checked in each tool's repository. From Phase 2 on, `make check-all` and
 `make smoke` pass locally and the CI (Linux, macOS, Windows) and Security workflows are green;
 from Phase 3 on, the Docker workflow too. Phase 5 also needs a green CD run with verified
-attestations.
+attestations. Phase 2's validation waits for a Salus release that fixes or annotates its gosec
+findings, synced into `Salus/`, and for a green CI run with the `.gitattributes` fix (see
+"Current state").
 
 Risks: R-1 the binary can run newer shared modules than a tool's own tests used (minimal
 version selection; `make deps-drift`); R-2 an older bundled tool can open a database written by
 a newer standalone binary (sync soon after each tool release; the tools keep schema changes
 additive); R-3 release targets inside tool folders (SEC-001); R-4 the tools share one process
 (signal handlers, `os.Stderr`, Cryptare's `os.Exit` at a password prompt); R-5 local edits in
-tool folders; R-6 CI is red until Phases 1–3 land.
+tool folders; R-6 CI is red: its Windows test jobs failed on `4c72f58` (CRLF `go.sum`), the
+Docker workflow had no `Dockerfile` to build there, and no GitHub run has confirmed the
+`.gitattributes` fix or the `Dockerfile` (P-030) yet.
 
 ## Open questions for the maintainer
 
 Don't decide these yourself; work around them or ask.
 
 - Q-1 Accept D-1 … D-9 as written, or change them before Phase 0?
-- Q-2 The entry point's name (`pkg.Main` proposed) and the tool versions that ship it.
-- Q-3 Import with `--squash`, or with full upstream history?
+- Q-2 The entry point's name (`pkg.Main` proposed) and the tool versions that ship it. In
+  practice: Munus `v1.0.1`, Cryptare `v1.4.1` and Salus `v1.2.1` export `Main` and are the
+  imported tags.
+- Q-3 Import with `--squash`, or with full upstream history? In practice: the Phase 1 imports
+  used `--squash`.
 - Q-4 Publish a container image later?
 - Q-5 Is `CODECOV_TOKEN` configured for Capsus?
 - Q-6 Rename `CODEOWNERS.txt` to `CODEOWNERS` (GitHub ignores the current name) and require
   code-owner review for `.github/`, the `Makefile` and `scripts/`?
 - Q-7 Munus' `main` README now calls v3.0.x pre-1.0.0 builds and shows `munus version v1.0.0`,
   but the `v1.0.0` tag's README still describes v3.x releases: confirm that Capsus reports
-  Munus' v1.x tags.
+  Munus' v1.x tags. In practice: Capsus bundles Munus `v1.0.1` and reports
+  `munus version v1.0.1`, and that release's README calls the v3.x builds pre-1.0.0.
 - Q-8 Is a root-level bump of a tool's dependency acceptable as a security stopgap?
-
-## Known documentation debt
-
-`README.md`, `CONTRIBUTING.md`, `.github/pull_request_template.md`, `.github/dependabot.yml`,
-`.gitignore`, comments and messages in the `Makefile` and the four workflows, and
-`scripts/smoke.sh` still point to the removed `intel/` documents; the IDs they cite resolve in
-this file and `.claude/rules/`. `NOTICE.txt` still lists Munus' modules (P-041). Fix these only
-when asked; `/docs-drift` reports them.
 
 ## Completion report
 

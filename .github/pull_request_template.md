@@ -30,7 +30,7 @@ Closes #
 <!-- Tick only what you actually ran, and paste the relevant output below. -->
 
 - [ ] `make check` (layout, keys-check, fmt-check, tidy-check, vet, lint, race, smoke)
-- [ ] `make check-all` (adds gosec, govulncheck, actionlint; required for CI, build, dependency or security changes)
+- [ ] `make check-all` (adds gosec, govulncheck, actionlint; required for CI, build, dependency or security changes; if gosec findings in a tool folder stop it at `make sec`, also run `make vuln actionlint`)
 - [ ] `make deps-drift` (required for a tool sync; paste its output)
 - [ ] Manual check of the menu and of launching each tool with a binary built by `make build` (describe below)
 
@@ -51,17 +51,19 @@ paste output here
 - [ ] No tool release target (`tag`, `push-tag`, `release`) was run inside a tool folder
 - [ ] Tests added or updated for every behaviour change; they are deterministic and use `t.TempDir()` for files and databases
 - [ ] The Apache-2.0 license header is kept on every source file
-- [ ] No new dependency, or the reason is recorded in `intel/notes.md`
+- [ ] No new dependency, or the maintainer approved it and the reason is stated in this pull request
+- [ ] After a dependency change or tool sync: `make licenses` run and the `NOTICE.txt` module list updated
 - [ ] `README.md` updated for user-visible changes
-- [ ] `intel/` documents updated where architecture, security items or plans changed (`intel/history.md` is append-only)
+- [ ] `AGENTS.md` and `.claude/rules/` updated where architecture, security items or plans changed (no new IDs)
 - [ ] No databases (`*.db`), key exports, coverage files, built binaries or secrets are included
 
 ## Security and compatibility
 
 <!--
 Security: does this touch how the launcher calls a tool, CI/CD, the Makefile, scripts/ or
-dependencies? Reference any affected item in intel/cybersec.md (for example SEC-00X), and for a tool
-sync any security item that changed in the tool's own intel/cybersec.md.
+dependencies? Reference any affected item in .claude/rules/build-and-ci.md, "Open security items"
+(for example SEC-00X), and for a tool sync any security fix or published security advisory in the
+tool releases it brings in, and any of the tools' own items listed there that it affects.
 Compatibility: does this change capsus commands, flags, menu keys, or how arguments and exit codes
 reach a tool? Write "None" if neither applies.
 -->

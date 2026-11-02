@@ -1,0 +1,35 @@
+# Keep VCS data, editor, CI and agent files, Go workspace files, local
+# databases, key material, encrypted data and build output out of the Docker
+# build context, in the tool folders too. The static stage needs only the Go
+# sources and go.mod files, and builds in module mode as CI does.
+.git
+**/.github
+**/.idea
+**/.vscode
+**/.junie
+**/.devcontainer
+**/.claude
+**/CLAUDE.md
+**/CLAUDE.local.md
+**/.env
+**/.env.*
+**/*.db
+**/*.db-journal
+**/*.db-wal
+**/*.db-shm
+**/*.ckey
+**/*.enc
+**/pw.txt
+**/*-pw.txt
+**/coverage.*
+**/*.out
+**/*.test
+**/*.sarif
+**/bin
+**/dist
+**/*.exe
+/capsus
+/Munus/munus
+/Salus/salus
+go.work
+go.work.sum
